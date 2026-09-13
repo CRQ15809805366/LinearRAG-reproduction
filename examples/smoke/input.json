@@ -1,0 +1,10 @@
+{
+  "passages": [
+    "Beatrice, Duchess of Burgundy, was married to Frederick Barbarossa.",
+    "Frederick Barbarossa was King of Germany.",
+    "Paris is the capital of France."
+  ],
+  "question": "What nationality was the husband of Beatrice, Duchess of Burgundy?",
+  "expected_answer": "German",
+  "adjustment_reason": "en_core_web_sm 3.6.0 did not recognize Beatrice I in the original numbered passage. This natural wording makes spaCy recognize the shared entity Beatrice in both the numbered passage and query, without hard-coding any entity, path, passage ID, or rank."
+}

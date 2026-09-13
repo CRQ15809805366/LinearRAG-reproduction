@@ -1,0 +1,9 @@
+{
+  "passages": [
+    "Beatrice I was married to Frederick Barbarossa.",
+    "Frederick Barbarossa was King of Germany.",
+    "Paris is the capital of France."
+  ],
+  "question": "What nationality was Beatrice I's husband?",
+  "expected_answer": "German"
+}

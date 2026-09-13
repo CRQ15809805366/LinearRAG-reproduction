@@ -1,0 +1,10 @@
+# Official direct dependencies remain authoritative.
+-r requirements.txt
+
+# Compatibility pin: sentencepiece 0.2.2 crashes while importing the official
+# transformers==4.30.2 stack on CPython 3.9/Windows. 0.1.99 is the compatible
+# release from the same model stack era and does not change LinearRAG formulas.
+sentencepiece==0.1.99
+
+# Observation only: records process RSS/peak RSS for the smoke report.
+psutil==5.9.8
