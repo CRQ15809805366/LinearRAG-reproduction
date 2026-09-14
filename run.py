@@ -63,9 +63,11 @@ def main():
         top_k_sentence=args.top_k_sentence,
         use_vectorized_retrieval=args.use_vectorized_retrieval
     )
+
     rag_model = LinearRAG(global_config=config)
-    rag_model.index(passages)
+    rag_model.index(passages) 
     questions = rag_model.qa(questions)
+
     os.makedirs(f"results/{args.dataset_name}/{time_str}", exist_ok=True)
     with open(f"results/{args.dataset_name}/{time_str}/predictions.json", "w", encoding="utf-8") as f:
         json.dump(questions, f, ensure_ascii=False, indent=4)

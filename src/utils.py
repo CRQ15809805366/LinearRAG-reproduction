@@ -60,7 +60,7 @@ def setup_logging(log_file):
         handlers=handlers,
         force=True
     )
-    # Suppress noisy HTTP request logs (e.g., 401 Unauthorized) from httpx/openai
+    # 屏蔽 httpx/openai 产生的冗余 HTTP 请求日志，例如 401 Unauthorized。
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
@@ -70,8 +70,8 @@ def min_max_normalize(x):
     max_val = np.max(x)
     range_val = max_val - min_val
     
-    # Handle the case where all values are the same (range is zero)
+    # 处理所有数值相同，即取值范围为零的情况。
     if range_val == 0:
-        return np.ones_like(x)  # Return an array of ones with the same shape as x
+        return np.ones_like(x)  # 返回与 x 形状相同的全 1 数组。
     
     return (x - min_val) / range_val

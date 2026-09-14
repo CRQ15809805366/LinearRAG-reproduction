@@ -18,7 +18,7 @@ class LinearRAGConfig:
     passage_node_weight: float = 0.05
     damping: float = 0.5
     iteration_threshold: float = 0.5
-    use_vectorized_retrieval: bool = False  # True for vectorized matrix computation, False for BFS iteration
+    use_vectorized_retrieval: bool = False  # True 表示向量化矩阵计算，False 表示 BFS 迭代
     enable_hybrid_attribute_fallback: bool = False
     attribute_keyword_boost: float = 0.25
     attribute_query_keywords: list[str] = field(default_factory=lambda: [

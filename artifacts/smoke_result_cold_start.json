@@ -9,22 +9,22 @@
     "embedding_device": "cpu",
     "retrieval_method": "official BFS iteration",
     "openai_used": false,
-    "elapsed_seconds": 1.2565004000000002,
-    "process_rss_before_mib": 330.33984375,
-    "process_rss_after_mib": 525.765625,
-    "process_peak_working_set_mib": 549.53515625,
+    "elapsed_seconds": 2.3260220999999994,
+    "process_rss_before_mib": 329.6953125,
+    "process_rss_after_mib": 520.2421875,
+    "process_peak_working_set_mib": 545.55078125,
     "gpu_before": {
       "name": "NVIDIA GeForce RTX 4050 Laptop GPU",
       "memory_total_mib": 6141,
-      "memory_used_mib": 165,
-      "memory_free_mib": 5757,
+      "memory_used_mib": 48,
+      "memory_free_mib": 5874,
       "driver": "572.83"
     },
     "gpu_after": {
       "name": "NVIDIA GeForce RTX 4050 Laptop GPU",
       "memory_total_mib": 6141,
-      "memory_used_mib": 165,
-      "memory_free_mib": 5757,
+      "memory_used_mib": 48,
+      "memory_free_mib": 5874,
       "driver": "572.83"
     }
   },
@@ -242,12 +242,12 @@
                 "question_similarity": 0.7550314664840698,
                 "discovered_entities": [
                   {
-                    "entity": "Frederick Barbarossa",
+                    "entity": "Beatrice",
                     "score": 0.7550314664840698,
                     "accepted": true
                   },
                   {
-                    "entity": "Beatrice",
+                    "entity": "Frederick Barbarossa",
                     "score": 0.7550314664840698,
                     "accepted": true
                   }
@@ -258,11 +258,11 @@
         ],
         "new_entities": [
           {
-            "entity": "Frederick Barbarossa",
+            "entity": "Beatrice",
             "score": 0.7550314664840698
           },
           {
-            "entity": "Beatrice",
+            "entity": "Frederick Barbarossa",
             "score": 0.7550314664840698
           }
         ]
@@ -270,6 +270,13 @@
       {
         "iteration": 2,
         "processed_entities": [
+          {
+            "entity": "Beatrice",
+            "incoming_score": 0.7550314664840698,
+            "tier": 2,
+            "selected_sentences": [],
+            "stopped": "no_unused_sentences"
+          },
           {
             "entity": "Frederick Barbarossa",
             "incoming_score": 0.7550314664840698,
@@ -280,34 +287,27 @@
                 "question_similarity": 0.08813732117414474,
                 "discovered_entities": [
                   {
-                    "entity": "Frederick Barbarossa",
+                    "entity": "Germany",
                     "score": 0.06654644757509232,
                     "accepted": true
                   },
                   {
-                    "entity": "Germany",
+                    "entity": "Frederick Barbarossa",
                     "score": 0.06654644757509232,
                     "accepted": true
                   }
                 ]
               }
             ]
-          },
-          {
-            "entity": "Beatrice",
-            "incoming_score": 0.7550314664840698,
-            "tier": 2,
-            "selected_sentences": [],
-            "stopped": "no_unused_sentences"
           }
         ],
         "new_entities": [
           {
-            "entity": "Frederick Barbarossa",
+            "entity": "Germany",
             "score": 0.06654644757509232
           },
           {
-            "entity": "Germany",
+            "entity": "Frederick Barbarossa",
             "score": 0.06654644757509232
           }
         ]

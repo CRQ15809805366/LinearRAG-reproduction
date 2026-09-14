@@ -1,14 +1,16 @@
-# Official source provenance
+# 官方源码来源记录
 
-- Repository: https://github.com/DEEP-PolyU/LinearRAG
-- Official branch: `main`
-- Exact commit: `bcc94e66c221f798801255efba09311d6fbcd8d6`
-- Commit date: 2026-07-05T00:55:44Z
-- Retrieved: 2026-09-13 (Asia/Shanghai)
-- Import method: Git HTTPS was attempted first and failed twice with `Recv failure: Connection was reset`. The source was then downloaded from GitHub's official codeload endpoint for the exact commit, extracted into a temporary directory inside this project, copied into the project root, and checked byte-for-byte with SHA-256 before the temporary directory and archive were removed.
-- Nested repository: none. The imported archive contained no `.git` directory.
+- 官方仓库：https://github.com/DEEP-PolyU/LinearRAG
+- 官方分支：`main`
+- 精确提交：`bcc94e66c221f798801255efba09311d6fbcd8d6`
+- 提交时间：2026-07-05T00:55:44Z
+- 获取日期：2026-09-13（Asia/Shanghai）
+- 导入方式：首次通过 Git HTTPS 获取时，两次出现 `Recv failure: Connection was reset`。随后从 GitHub 官方 codeload 地址下载上述精确提交的归档，在本项目内的临时目录解压，将工作树复制到项目根目录，并逐文件完成 SHA-256 对比后删除临时目录和归档。
+- 嵌套仓库：无。导入的归档不包含 `.git` 目录。
 
-## Official files kept byte-for-byte unchanged
+## 上游原始文件哈希基线
+
+以下哈希记录的是首次导入时，与官方提交逐字节一致的原始文件。当前工作树已经对 README 和源码注释进行中文本土化，因此这些哈希用于追溯上游基线，不表示所有当前文件仍与上游逐字节一致。
 
 ```text
 3817e5dd849dc7dc9f1131af4deded419129eb2ea192b5a4235322be47d7a202  .gitignore
@@ -28,4 +30,10 @@ bdf03409f6bf3c6bdde1ee5970b46dbf27c4955eb10b5b10c138402c415dddec  src/config.py
 f6238d72e530336adecd74f3371392a647b81b7796327b6b66e3ba82fd69c005  figure/main_figure.png
 ```
 
-All local work is additive: `requirements-windows.txt`, `smoke_test.py`, `examples/`, `tools/`, `artifacts/`, and this provenance file. No official algorithm file was edited.
+## 中文本土化修改
+
+当前 `readme.md` 已翻译为中文。翻译只改变说明文字，命令、路径、链接、参数和 BibTeX 均保持原意，不影响程序运行。需要对照上游原文时，可通过上方官方仓库和精确提交查看。
+
+源码、脚本和依赖文件中的说明性注释与 docstring 也已翻译为中文。技术标识、变量名、CLI 参数、运行时日志、模型提示词、算法表达式和可执行语句保持原意。除 docstring 字符串常量外，本次注释本地化不改变 Python 的可执行语法结构或程序行为。
+
+其余本地新增内容包括 `requirements-windows.txt`、`smoke_test.py`、`examples/`、`tools/`、`artifacts/` 和本来源记录。

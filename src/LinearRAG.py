@@ -14,7 +14,7 @@ import logging
 import torch
 logger = logging.getLogger(__name__)
 
-
+# 主运行逻辑
 class LinearRAG:
     def __init__(self, global_config):
         self.config = global_config
@@ -22,7 +22,7 @@ class LinearRAG:
         retrieval_method = "Vectorized Matrix-based" if self.config.use_vectorized_retrieval else "BFS Iteration"
         logger.info(f"Using retrieval method: {retrieval_method}")
         
-        # Setup device for GPU acceleration
+        # 设置用于 GPU 加速的设备。
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if self.config.use_vectorized_retrieval:
             logger.info(f"Using device: {self.device} for vectorized retrieval")
@@ -91,7 +91,7 @@ class LinearRAG:
         self.node_name_to_vertex_idx = {v["name"]: v.index for v in self.graph.vs if "name" in v.attributes()}
         self.vertex_idx_to_node_name = {v.index: v["name"] for v in self.graph.vs if "name" in v.attributes()}
 
-        # Precompute sparse matrices for vectorized retrieval if needed
+        # 在需要时为向量化检索预计算稀疏矩阵。
         if self.config.use_vectorized_retrieval:
             logger.info("Precomputing sparse adjacency matrices for vectorized retrieval...")
             self._precompute_sparse_matrices()
@@ -129,14 +129,14 @@ class LinearRAG:
         return retrieval_results
     
     def _precompute_sparse_matrices(self):
-        """
-        Precompute and cache sparse adjacency matrices for efficient vectorized retrieval using PyTorch.
-        This is called once at the beginning of retrieve() to avoid rebuilding matrices per query.
+        """预计算并缓存稀疏邻接矩阵，以便使用 PyTorch 高效执行向量化检索。
+
+        此方法在 retrieve() 开始时调用一次，避免为每个查询重复构建矩阵。
         """
         num_entities = len(self.entity_hash_ids)
         num_sentences = len(self.sentence_hash_ids)
-        
-        # Build entity-to-sentence matrix (Mention matrix) using COO format
+
+        # 使用 COO 格式构建实体到句子的矩阵，即提及矩阵。
         entity_to_sentence_indices = []
         entity_to_sentence_values = []
         
@@ -146,8 +146,8 @@ class LinearRAG:
                 sentence_idx = self.sentence_embedding_store.hash_id_to_idx[sentence_hash_id]
                 entity_to_sentence_indices.append([entity_idx, sentence_idx])
                 entity_to_sentence_values.append(1.0)
-        
-        # Build sentence-to-entity matrix
+
+        # 构建句子到实体的矩阵。
         sentence_to_entity_indices = []
         sentence_to_entity_values = []
         
@@ -158,7 +158,7 @@ class LinearRAG:
                 sentence_to_entity_indices.append([sentence_idx, entity_idx])
                 sentence_to_entity_values.append(1.0)
         
-        # Convert to PyTorch sparse tensors (COO format, then convert to CSR for efficiency)
+        # 转换为 PyTorch 稀疏张量，先使用 COO 格式，再按需转为高效的 CSR 格式。
         if len(entity_to_sentence_indices) > 0:
             e2s_indices = torch.tensor(entity_to_sentence_indices, dtype=torch.long).t()
             e2s_values = torch.tensor(entity_to_sentence_values, dtype=torch.float32)
@@ -256,42 +256,41 @@ class LinearRAG:
         return entity_weights, actived_entities
 
     def calculate_entity_scores_vectorized(self,question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores):
+        """使用 PyTorch 稀疏张量实现 GPU 加速的向量化版本。
+
+        矩阵和实体分数向量均采用稀疏表示，以提高效率。动态剪枝与 BFS 行为保持一致：
+        - 句子去重，即跟踪已经使用的句子；
+        - 每个实体独立选择 Top-k 句子；
+        - 按阈值正确剪枝。
         """
-        GPU-accelerated vectorized version using PyTorch sparse tensors.
-        Uses sparse representation for both matrices and entity score vectors for maximum efficiency.
-        Now includes proper dynamic pruning to match BFS behavior:
-        - Sentence deduplication (tracks used sentences)
-        - Per-entity top-k sentence selection
-        - Proper threshold-based pruning
-        """
-        # Initialize entity weights
+        # 初始化实体权重。
         entity_weights = np.zeros(len(self.graph.vs["name"]))
         num_entities = len(self.entity_hash_ids)
         num_sentences = len(self.sentence_hash_ids)
         
-        # Compute all sentence similarities with the question at once
+        # 一次性计算所有句子与问题的相似度。
         question_emb = question_embedding.reshape(-1, 1) if len(question_embedding.shape) == 1 else question_embedding
         sentence_similarities_np = np.dot(self.sentence_embeddings, question_emb).flatten()
         
-        # Convert to torch tensors and move to device
+        # 转换为 torch 张量并移动到目标设备。
         sentence_similarities = torch.from_numpy(sentence_similarities_np).float().to(self.device)
         
-        # Track used sentences for deduplication (like BFS version)
+        # 跟踪已经使用的句子以便去重，与 BFS 版本一致。
         used_sentence_mask = torch.zeros(num_sentences, dtype=torch.bool, device=self.device)
         
-        # Initialize seed entity scores as sparse tensor
+        # 将种子实体分数初始化为稀疏张量。
         seed_indices = torch.tensor([[idx] for idx in seed_entity_indices], dtype=torch.long).t()
         seed_values = torch.tensor(seed_entity_scores, dtype=torch.float32)
         entity_scores_sparse = torch.sparse_coo_tensor(
             seed_indices, seed_values, (num_entities,), device=self.device
         ).coalesce()
         
-        # Also maintain a dense accumulator for total scores
+        # 同时维护用于累积总分的稠密张量。
         entity_scores_dense = torch.zeros(num_entities, dtype=torch.float32, device=self.device)
         entity_scores_dense.scatter_(0, torch.tensor(seed_entity_indices, device=self.device), 
                                      torch.tensor(seed_entity_scores, dtype=torch.float32, device=self.device))
         
-        # Initialize actived_entities
+        # 初始化已激活实体。
         actived_entities = {}
         for seed_entity_idx, seed_entity, seed_entity_hash_id, seed_entity_score in zip(
             seed_entity_indices, seed_entities, seed_entity_hash_ids, seed_entity_scores
@@ -302,33 +301,33 @@ class LinearRAG:
         
         current_entity_scores_sparse = entity_scores_sparse
         
-        # Iterative matrix-based propagation using sparse matrices on GPU
+        # 在 GPU 上使用稀疏矩阵执行迭代式矩阵传播。
         for iteration in range(1, self.config.max_iterations):
-            # Convert sparse tensor to dense for threshold operation
+            # 将稀疏张量转为稠密张量，以执行阈值操作。
             current_entity_scores_dense = current_entity_scores_sparse.to_dense()
             
-            # Apply threshold to current scores
+            # 对当前分数应用阈值。
             current_entity_scores_dense = torch.where(
                 current_entity_scores_dense >= self.config.iteration_threshold, 
                 current_entity_scores_dense, 
                 torch.zeros_like(current_entity_scores_dense)
             )
             
-            # Get non-zero indices for sparse representation
+            # 获取非零索引，用于构造稀疏表示。
             nonzero_mask = current_entity_scores_dense > 0
             nonzero_indices = torch.nonzero(nonzero_mask, as_tuple=False).squeeze(-1)
             
             if len(nonzero_indices) == 0:
                 break
             
-            # Extract non-zero values and create sparse tensor
+            # 提取非零值并创建稀疏张量。
             nonzero_values = current_entity_scores_dense[nonzero_indices]
             current_entity_scores_sparse = torch.sparse_coo_tensor(
                 nonzero_indices.unsqueeze(0), nonzero_values, (num_entities,), device=self.device
             ).coalesce()
             
-            # Step 1: Sparse entity scores @ Sparse E2S matrix
-            # Convert sparse vector to 2D for matrix multiplication
+            # 第 1 步：稀疏实体分数乘以稀疏的实体到句子矩阵。
+            # 将稀疏向量转换为二维形式，以便执行矩阵乘法。
             current_scores_2d = torch.sparse_coo_tensor(
                 torch.stack([nonzero_indices, torch.zeros_like(nonzero_indices)]),
                 nonzero_values,
@@ -336,71 +335,71 @@ class LinearRAG:
                 device=self.device
             ).coalesce()
             
-            # E @ E2S -> sentence activation scores (sparse @ sparse = dense)
+            # E 乘以 E2S 得到句子激活分数，稀疏矩阵相乘后得到稠密结果。
             sentence_activation = torch.sparse.mm(
                 self.entity_to_sentence_sparse.t(),
                 current_scores_2d
             )
-            # Convert to dense before squeeze to avoid CUDA sparse tensor issues
+            # 在 squeeze 前转为稠密张量，避免 CUDA 稀疏张量问题。
             if sentence_activation.is_sparse:
                 sentence_activation = sentence_activation.to_dense()
             sentence_activation = sentence_activation.squeeze()
             
-            # Apply sentence deduplication: mask out used sentences
+            # 执行句子去重：屏蔽已经使用的句子。
             sentence_activation = torch.where(
                 used_sentence_mask,
                 torch.zeros_like(sentence_activation),
                 sentence_activation
             )
             
-            # Step 2: Per-entity top-k sentence selection
-            # This matches BFS behavior: each entity independently selects its top-k sentences
+            # 第 2 步：为每个实体选择 Top-k 句子。
+            # 此处与 BFS 行为一致：每个实体独立选择自己的 Top-k 句子。
             selected_sentence_indices_list = []
             
             if len(nonzero_indices) > 0 and self.config.top_k_sentence > 0:
-                # Iterate through each active entity
+                # 遍历每个活跃实体。
                 for i, entity_idx in enumerate(nonzero_indices):
                     entity_score = nonzero_values[i]
                     
-                    # Get sentences connected to this entity from the sparse matrix
-                    # entity_to_sentence_sparse shape: (num_entities, num_sentences)
+                    # 从稀疏矩阵中取得与当前实体相连的句子。
+                    # entity_to_sentence_sparse 的形状为实体数乘以句子数。
                     entity_row = self.entity_to_sentence_sparse[entity_idx].coalesce()
-                    entity_sentence_indices = entity_row.indices()[0]  # Get column indices
+                    entity_sentence_indices = entity_row.indices()[0]  # 取得列索引。
                     
                     if len(entity_sentence_indices) == 0:
                         continue
                     
-                    # Filter out already used sentences
+                    # 过滤已经使用的句子。
                     sentence_mask = ~used_sentence_mask[entity_sentence_indices]
                     available_sentence_indices = entity_sentence_indices[sentence_mask]
                     
                     if len(available_sentence_indices) == 0:
                         continue
                     
-                    # Get sentence similarities (for ranking)
+                    # 取得用于排序的句子相似度。
                     sentence_sims = sentence_similarities[available_sentence_indices]
                     
-                    # Select top-k sentences based ONLY on sentence similarity (matches BFS line 240)
-                    # NOT weighted by entity_score at selection time
+                    # 只根据句子相似度选择 Top-k 句子，与 BFS 第 240 行一致。
+                    # 选择时不乘以 entity_score。
                     k = min(self.config.top_k_sentence, len(sentence_sims))
                     if k > 0:
                         top_k_values, top_k_local_indices = torch.topk(sentence_sims, k)
                         top_k_sentence_indices = available_sentence_indices[top_k_local_indices]
                         selected_sentence_indices_list.append(top_k_sentence_indices)
                 
-                # Merge all selected sentences (with deduplication via unique)
+                # 合并所有选中句子，并通过 unique 去重。
                 if len(selected_sentence_indices_list) > 0:
                     all_selected_sentences = torch.cat(selected_sentence_indices_list)
                     unique_selected_sentences = torch.unique(all_selected_sentences)
                     
-                    # Mark selected sentences as used
+                    # 将选中句子标记为已使用。
                     used_sentence_mask[unique_selected_sentences] = True
                     
-                    # Compute weighted sentence scores for propagation
-                    # weighted_score = sentence_activation * sentence_similarity
+                    # 计算用于传播的加权句子分数。
+                    # 加权分数 = 句子激活值 × 句子相似度。
                     weighted_sentence_scores = sentence_activation * sentence_similarities
                     
-                    # Zero out non-selected sentences
+                    # 将未选中句子的分数清零。
                     mask = torch.zeros(num_sentences, dtype=torch.bool, device=self.device)
                     mask[unique_selected_sentences] = True
                     weighted_sentence_scores = torch.where(
@@ -409,14 +408,14 @@ class LinearRAG:
                         torch.zeros_like(weighted_sentence_scores)
                     )
                 else:
-                    # No sentences selected, create zero vector
+                    # 没有选中句子时，创建零向量。
                     weighted_sentence_scores = torch.zeros(num_sentences, dtype=torch.float32, device=self.device)
             else:
-                # No active entities or top_k_sentence is 0
+                # 没有活跃实体，或 top_k_sentence 为 0。
                 weighted_sentence_scores = torch.zeros(num_sentences, dtype=torch.float32, device=self.device)
             
-            # Step 3: Weighted sentences @ S2E -> propagate to next entities
-            # Convert to sparse for more efficient computation
+            # 第 3 步：加权句子乘以句子到实体矩阵，传播到下一批实体。
+            # 转为稀疏表示以提高计算效率。
             weighted_nonzero_mask = weighted_sentence_scores > 0
             weighted_nonzero_indices = torch.nonzero(weighted_nonzero_mask, as_tuple=False).squeeze(-1)
             
@@ -433,27 +432,27 @@ class LinearRAG:
                     self.sentence_to_entity_sparse.t(),
                     weighted_scores_2d
                 )
-                # Convert to dense before squeeze to avoid CUDA sparse tensor issues
+                # 在 squeeze 前转为稠密张量，避免 CUDA 稀疏张量问题。
                 if next_entity_scores_result.is_sparse:
                     next_entity_scores_result = next_entity_scores_result.to_dense()
                 next_entity_scores_dense = next_entity_scores_result.squeeze()
             else:
                 next_entity_scores_dense = torch.zeros(num_entities, dtype=torch.float32, device=self.device)
             
-            # Update entity scores (accumulate in dense format)
+            # 更新实体分数，并以稠密形式累积。
             entity_scores_dense += next_entity_scores_dense
             
-            # Update actived_entities dictionary (record last trigger like BFS)
-            # This matches BFS behavior: unconditionally update for entities above threshold
+            # 更新 actived_entities 字典，与 BFS 一样记录最后一次触发。
+            # 此处与 BFS 行为一致：无条件更新高于阈值的实体。
             next_entity_scores_np = next_entity_scores_dense.cpu().numpy()
             active_indices = np.where(next_entity_scores_np >= self.config.iteration_threshold)[0]
             for entity_idx in active_indices:
                 score = next_entity_scores_np[entity_idx]
                 entity_hash_id = self.entity_hash_ids[entity_idx]
-                # Unconditionally update to record the last trigger (matches BFS line 252)
+                # 无条件更新以记录最后一次触发，与 BFS 第 252 行一致。
                 actived_entities[entity_hash_id] = (entity_idx, float(score), iteration)
             
-            # Prepare sparse tensor for next iteration
+            # 为下一轮迭代准备稀疏张量。
             next_nonzero_mask = next_entity_scores_dense > 0
             next_nonzero_indices = torch.nonzero(next_nonzero_mask, as_tuple=False).squeeze(-1)
             if len(next_nonzero_indices) > 0:
@@ -465,10 +464,10 @@ class LinearRAG:
             else:
                 break
         
-        # Convert back to numpy for final processing
+        # 转回 NumPy 以执行最终处理。
         entity_scores_final = entity_scores_dense.cpu().numpy()
         
-        # Map entity scores to graph node weights (only for non-zero scores)
+        # 将实体分数映射为图节点权重，只处理非零分数。
         nonzero_indices = np.where(entity_scores_final > 0)[0]
         for entity_idx in nonzero_indices:
             score = entity_scores_final[entity_idx]
@@ -655,6 +654,7 @@ class LinearRAG:
             for entity in entities:
                 entity_nodes.add(entity)
                 passage_hash_id_to_entities[passage_hash_id].add(entity)
+
         for sentence,entities in existing_sentence_to_entities.items():
             sentence_nodes.add(sentence)
             for entity in entities:

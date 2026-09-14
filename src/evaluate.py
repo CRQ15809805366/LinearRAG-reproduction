@@ -52,7 +52,7 @@ class Evaluator:
     def evaluate_sig_sample(self,idx,prediction):
         pre_answer = prediction["pred_answer"]
         gold_ans = prediction["gold_answer"]
-        # llm_acc = 0.0
+        # 如需跳过大语言模型评测，可将下一行替换为：llm_acc = 0.0
         llm_acc = self.calculate_llm_accuracy(pre_answer, gold_ans)
         contain_acc = self.calculate_contain(pre_answer, gold_ans)
         return idx, llm_acc, contain_acc

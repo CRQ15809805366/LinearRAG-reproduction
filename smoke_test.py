@@ -1,9 +1,7 @@
-"""Run an observable, OpenAI-free smoke test through the official LinearRAG core.
+"""通过官方 LinearRAG 核心执行可观察且不依赖 OpenAI 的冒烟测试。
 
-The official files under ``src/`` are intentionally left unchanged. This runner
-calls their real index and retrieval methods. Its BFS replay is observation-only:
-the replayed weights are asserted equal to the weights returned by the official
-implementation and never feed the final ranking.
+本运行器调用真实的索引和检索方法。BFS 重放只用于观测：程序会断言
+重放权重与官方实现返回的权重相等，重放结果不会参与最终排序。
 """
 
 from __future__ import annotations
@@ -93,7 +91,7 @@ def _ner_snapshot(nlp: Any, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 class ObservableLinearRAG(LinearRAG):
-    """Adds trace capture around, not inside, the unchanged official methods."""
+    """在官方方法外围采集轨迹，不介入方法内部计算。"""
 
     def __init__(self, global_config: LinearRAGConfig):
         self.trace: dict[str, Any] = {}
@@ -317,9 +315,8 @@ def main() -> int:
         passage_ratio=2,
         passage_node_weight=0.05,
         damping=0.5,
-        # The MiniLM sentence similarity on the second hop is ~0.088; 0.05 keeps
-        # the official threshold rule intact while allowing this tiny CPU demo
-        # to expose the expected Germany propagation.
+        # MiniLM 在第二跳的句子相似度约为 0.088；0.05 保持官方阈值规则不变，
+        # 同时让这个极小 CPU 示例能够呈现预期的 Germany 传播。
         iteration_threshold=0.05,
         use_vectorized_retrieval=False,
     )

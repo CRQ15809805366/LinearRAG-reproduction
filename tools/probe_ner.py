@@ -1,4 +1,4 @@
-"""Probe natural wording variants with the configured spaCy model."""
+"""使用配置的 spaCy 模型探测不同自然措辞的实体识别结果。"""
 
 import en_core_web_sm
 
