@@ -12,6 +12,7 @@ import os
 
 
 class EmbeddingStore:
+    # == 初始化与已有数据加载 ==
     def __init__(self, embedding_model, db_filename, batch_size, namespace):
         # 初始化嵌入存储类
         self.embedding_model = embedding_model
@@ -47,6 +48,8 @@ class EmbeddingStore:
             # 打印加载的记录数
             print(f"[{self.namespace}] Loaded {len(self.hash_ids)} records from {self.db_filename}")
 
+
+    # == 写入：新文本编码、映射更新与持久化 ==
     def insert_text(self, text_list):
         """为新文本生成哈希 ID 和嵌入，并写入存储。"""
 
@@ -62,7 +65,7 @@ class EmbeddingStore:
         existing = set(self.hash_ids)
         missing_ids = [h for h in all_hash_ids if h not in existing]      
         texts_to_encode = [nodes_dict[hash_id]["content"] for hash_id in missing_ids]
-        all_embeddings = self.embedding_model.encode(texts_to_encode,normalize_embeddings=True, show_progress_bar=False,batch_size=self.batch_size)
+        all_embeddings = self.embedding_model.encode(texts_to_encode, normalize_embeddings=True, show_progress_bar=False, batch_size=self.batch_size)
 
         # 将缺失的文本及其嵌入插入到存储中
         self._upsert(missing_ids, texts_to_encode, all_embeddings)
@@ -93,6 +96,8 @@ class EmbeddingStore:
         os.makedirs(os.path.dirname(self.db_filename), exist_ok=True)
         data_to_save.to_parquet(self.db_filename, index=False)
 
+
+    # == 对外接口：读取映射、编码文本与取得向量 ==
     def get_hash_id_to_text(self):
         """返回哈希 ID 到文本映射的深拷贝。"""
         return deepcopy(self.hash_id_to_text)

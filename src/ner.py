@@ -10,9 +10,11 @@ import pdb
 
 
 class SpacyNER:
-    def __init__(self,spacy_model):
+    def __init__(self, spacy_model):
         self.spacy_model = spacy.load(spacy_model)
 
+
+    # == 索引阶段：批量处理片段及单文档抽取 ==
     def batch_ner(self, hash_id_to_passage, max_workers):
         """批量处理片段，返回片段到实体和句子到实体的映射。"""
 
@@ -21,17 +23,17 @@ class SpacyNER:
 
         # 计算批处理大小，并使用 spaCy 的管道方法进行批量处理
         batch_size = len(passage_list) // max_workers
-        docs_list = self.spacy_model.pipe(passage_list,batch_size=batch_size)
+        docs_list = self.spacy_model.pipe(passage_list, batch_size=batch_size)
 
         # 初始化字典来存储每个片段的哈希 ID 到实体的映射，以及每个句子到实体的映射
         passage_hash_id_to_entities = {}
         sentence_to_entities = defaultdict(list)
 
         # 遍历处理后的文档列表，提取实体和句子
-        for idx,doc in enumerate(docs_list):
+        for idx, doc in enumerate(docs_list):
             # 获取当前片段的哈希 ID, 以及单个片段的哈希 ID / 句子 到实体的映射
             passage_hash_id = list(hash_id_to_passage.keys())[idx]
-            single_passage_hash_id_to_entities,single_sentence_to_entities = self.extract_entities_sentences(doc,passage_hash_id)
+            single_passage_hash_id_to_entities, single_sentence_to_entities = self.extract_entities_sentences(doc, passage_hash_id)
 
             # 将单个片段的哈希 ID / 句子 到实体的映射合并到总的映射中
             passage_hash_id_to_entities.update(single_passage_hash_id_to_entities)
@@ -41,9 +43,9 @@ class SpacyNER:
                         sentence_to_entities[sent].append(e)
 
         # 返回每个片段的哈希 ID 到实体的映射，以及每个句子到实体的映射
-        return passage_hash_id_to_entities,sentence_to_entities
+        return passage_hash_id_to_entities, sentence_to_entities
 
-    def extract_entities_sentences(self, doc,passage_hash_id):
+    def extract_entities_sentences(self, doc, passage_hash_id):
         """从单个 spaCy 文档中提取有效实体及其所在句子。"""
 
         # 初始化集合和字典来存储唯一实体、句子到实体的映射，以及片段哈希 ID 到实体的映射
@@ -66,8 +68,10 @@ class SpacyNER:
         passage_hash_id_to_entities[passage_hash_id] = list(unique_entities)
 
         # 返回单个片段的哈希 ID 到实体的映射，以及每个句子到实体的映射
-        return passage_hash_id_to_entities,sentence_to_entities
+        return passage_hash_id_to_entities, sentence_to_entities
 
+
+    # == 检索阶段：提取问题实体 ==
     def question_ner(self, question: str):
         """从问题中提取非序数、非基数的小写实体集合。"""
         doc = self.spacy_model(question)

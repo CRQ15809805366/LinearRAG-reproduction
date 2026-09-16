@@ -28,7 +28,9 @@ class Evaluator:
         prediction_results = json.load(open(self.predictions_path))
         return prediction_results
 
-    def calculate_llm_accuracy(self,pre_answer,gold_ans):
+
+    # == 单样本评测：两类指标与结果汇合 ==
+    def calculate_llm_accuracy(self, pre_answer, gold_ans):
         """调用 LLM 判断单个预测答案与金标准答案是否一致。"""
         system_prompt = """You are an expert evaluator. 
         """
@@ -51,7 +53,7 @@ class Evaluator:
         else:
             return 0.0
 
-    def calculate_contain(self,pre_answers,gold_ans):
+    def calculate_contain(self, pre_answers, gold_ans):
         """检查标准化后的预测答案是否包含金标准答案。"""
         # 处理空值
         if pre_answers is None or pre_answers == "" or (isinstance(pre_answers, str) and pre_answers.strip() == ""):
@@ -69,7 +71,7 @@ class Evaluator:
         else:
             return 0
 
-    def evaluate_sig_sample(self,idx,prediction):
+    def evaluate_sig_sample(self, idx, prediction):
         """对单个样本同时执行 LLM 评测和包含评测。"""
         pre_answer = prediction["pred_answer"]
         gold_ans = prediction["gold_answer"]
@@ -80,7 +82,9 @@ class Evaluator:
 
         return idx, llm_acc, contain_acc
 
-    def evaluate(self,max_workers):
+
+    # == 批量评测：并发执行、汇总与保存 ==
+    def evaluate(self, max_workers):
         """并行评测全部样本，写回样本结果并保存总体指标。"""
         # 初始化评测结果列表
         llm_scores = [0.0] * len(self.prediction_results)

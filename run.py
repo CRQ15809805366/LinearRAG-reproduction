@@ -25,6 +25,7 @@ from datetime import datetime
 # 忽略警告
 warnings.filterwarnings('ignore')
 
+# == 运行准备：参数与资源加载 ==
 def parse_arguments():
     """解析 LinearRAG 运行所需的命令行参数。"""
     parser = argparse.ArgumentParser()
@@ -55,10 +56,11 @@ def load_dataset(dataset_name):
 
 def load_embedding_model(embedding_model):
     """从指定路径加载用于检索的 SentenceTransformer 模型。"""
-    embedding_model = SentenceTransformer(embedding_model,device="cuda")
+    embedding_model = SentenceTransformer(embedding_model, device="cuda")
     return embedding_model
 
 
+# == 主流程：索引 → 问答 → 保存 → 评测 ==
 def main():
     """执行从资源加载到索引、问答、保存和评测的主流程。"""
 
@@ -71,7 +73,7 @@ def main():
 
     # 加载嵌入模型和数据集，设置日志记录
     embedding_model = load_embedding_model(args.embedding_model)
-    questions,passages = load_dataset(args.dataset_name)
+    questions, passages = load_dataset(args.dataset_name)
     setup_logging(f"results/{args.dataset_name}/{time_str}/log.txt")
 
     # 导入配置

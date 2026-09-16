@@ -10,18 +10,22 @@ from src.utils import LLM_Model
 
 @dataclass
 class LinearRAGConfig:
+    # == 数据集与模型 ==
     dataset_name: str
     embedding_model: str = "all-mpnet-base-v2"
     llm_model: LLM_Model = None
 
+    # == 文本切分 ==
     chunk_token_size: int = 1000
     chunk_overlap_token_size: int = 100
 
+    # == NER、存储与批处理 ==
     spacy_model: str = "en_core_web_trf"
     working_dir: str = "./import"
     batch_size: int = 128
     max_workers: int = 16
 
+    # == 检索与图传播 ==
     retrieval_top_k: int = 5
     max_iterations: int = 3
     top_k_sentence: int = 1
@@ -31,6 +35,7 @@ class LinearRAGConfig:
     iteration_threshold: float = 0.5
     use_vectorized_retrieval: bool = False  # True 表示向量化矩阵计算，False 表示 BFS 迭代
 
+    # == 可选分支：属性增强 ==
     enable_hybrid_attribute_fallback: bool = False
     attribute_keyword_boost: float = 0.25
     attribute_query_keywords: list[str] = field(default_factory=lambda: [
