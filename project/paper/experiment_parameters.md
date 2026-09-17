@@ -4,7 +4,7 @@
 
 所有实验均使用：
 
-- 嵌入模型：`model/all-mpnet-base-v2`
+- 嵌入模型：`data/input/models/all-mpnet-base-v2`
 - LLM：`gpt-4o-mini`
 - `max_workers`：`16`
 

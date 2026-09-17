@@ -4,8 +4,11 @@
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Union
 
 from src.utils import LLM_Model
+from src.paths import CACHE_DIR
 
 
 @dataclass
@@ -21,7 +24,7 @@ class LinearRAGConfig:
 
     # == NER、存储与批处理 ==
     spacy_model: str = "en_core_web_trf"
-    working_dir: str = "./import"
+    working_dir: Union[str, Path] = CACHE_DIR
     batch_size: int = 128
     max_workers: int = 16
 

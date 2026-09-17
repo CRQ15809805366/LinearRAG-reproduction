@@ -6,5 +6,5 @@
   ],
   "question": "What nationality was the husband of Beatrice, Duchess of Burgundy?",
   "expected_answer": "German",
-  "adjustment_reason": "en_core_web_sm 3.6.0 did not recognize Beatrice I in the original numbered passage. This natural wording makes spaCy recognize the shared entity Beatrice in both the numbered passage and query, without hard-coding any entity, path, passage ID, or rank."
+  "adjustment_reason": "The expanded wording keeps the shared Beatrice entity explicit and stable in this minimal en_core_web_trf smoke test, without hard-coding any entity, path, passage ID, or rank."
 }

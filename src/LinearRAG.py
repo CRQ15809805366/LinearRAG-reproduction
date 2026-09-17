@@ -36,14 +36,14 @@ class LinearRAG:
         self.config = global_config
         logger.info(f"Initializing LinearRAG with config: {self.config}")
 
+        # 设置用于 GPU 加速的设备
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
         # 根据配置选择检索方法，并记录使用的检索方法。
         retrieval_method = "Vectorized Matrix-based" if self.config.use_vectorized_retrieval else "BFS Iteration"
         logger.info(f"Using retrieval method: {retrieval_method}")
         if self.config.use_vectorized_retrieval:
-                    logger.info(f"Using device: {self.device} for vectorized retrieval")
-
-        # 设置用于 GPU 加速的设备
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            logger.info(f"Using device: {self.device} for vectorized retrieval")
 
         # 配置数据集, 加载嵌入存储、LLM 模型和 NER 模型，并构建图结构。
         self.dataset_name = global_config.dataset_name

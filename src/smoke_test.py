@@ -1,7 +1,8 @@
 """通过官方 LinearRAG 核心执行可观察且不依赖 OpenAI 的冒烟测试。
 
 本运行器调用真实的索引和检索方法。BFS 重放只用于观测：程序会断言
-重放权重与官方实现返回的权重相等，重放结果不会参与最终排序。
+重放权重与官方实现返回的权重相等，重放结果不会参与最终排序。向量化
+分支直接调用官方稀疏矩阵实现，冒烟层只采集设备和结果。
 """
 
 from __future__ import annotations
@@ -22,12 +23,12 @@ from sentence_transformers import SentenceTransformer
 
 from src.LinearRAG import LinearRAG
 from src.config import LinearRAGConfig
+from src.paths import CACHE_DIR, EXAMPLES_DIR, MODELS_DIR, PROJECT_ROOT, SMOKE_OUTPUT_DIR
 
 
-ROOT = Path(__file__).resolve().parent
-DEFAULT_INPUT = ROOT / "examples" / "smoke" / "input.json"
-ORIGINAL_INPUT = ROOT / "examples" / "smoke" / "original_input.json"
-DEFAULT_OUTPUT = ROOT / "artifacts" / "smoke_result.json"
+DEFAULT_INPUT = EXAMPLES_DIR / "smoke" / "input.json"
+ORIGINAL_INPUT = EXAMPLES_DIR / "smoke" / "original_input.json"
+DEFAULT_OUTPUT = SMOKE_OUTPUT_DIR / "smoke_result.json"
 
 
 def _json_value(value: Any) -> Any:
@@ -158,6 +159,35 @@ class ObservableLinearRAG(LinearRAG):
         self.trace["bfs_replay_matches_official"] = True
         return official_weights, official_active
 
+    def calculate_entity_scores_vectorized(
+        self,
+        question_embedding,
+        seed_entity_indices,
+        seed_entities,
+        seed_entity_hash_ids,
+        seed_entity_scores,
+    ):
+        official_weights, official_active = super().calculate_entity_scores_vectorized(
+            question_embedding,
+            seed_entity_indices,
+            seed_entities,
+            seed_entity_hash_ids,
+            seed_entity_scores,
+        )
+        self.trace["active_entities"] = [
+            {
+                "entity": self.entity_embedding_store.hash_id_to_text[hash_id],
+                "score": float(values[1]),
+                "tier": int(values[2]),
+            }
+            for hash_id, values in official_active.items()
+        ]
+        self.trace["vectorized_sparse_devices"] = {
+            "entity_to_sentence": str(self.entity_to_sentence_sparse.device),
+            "sentence_to_entity": str(self.sentence_to_entity_sparse.device),
+        }
+        return official_weights, official_active
+
     def _replay_bfs_trace(
         self,
         question_embedding,
@@ -281,8 +311,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--embedding-model", type=Path, default=ROOT / "model" / "all-MiniLM-L6-v2")
-    parser.add_argument("--spacy-model", default="en_core_web_sm")
+    parser.add_argument("--embedding-model", type=Path, default=MODELS_DIR / "all-mpnet-base-v2")
+    parser.add_argument("--spacy-model", default="en_core_web_trf")
+    parser.add_argument("--use-vectorized-retrieval", action="store_true")
     return parser.parse_args()
 
 
@@ -300,13 +331,13 @@ def main() -> int:
     adjusted_ner = _ner_snapshot(nlp, payload)
     del nlp
 
-    model = SentenceTransformer(str(args.embedding_model), device="cpu")
+    model = SentenceTransformer(str(args.embedding_model), device="cuda")
     config = LinearRAGConfig(
-        dataset_name="smoke",
+        dataset_name="smoke_gpu",
         embedding_model=model,
         llm_model=None,
         spacy_model=args.spacy_model,
-        working_dir=str(ROOT / "import"),
+        working_dir=str(CACHE_DIR),
         batch_size=2,
         max_workers=1,
         retrieval_top_k=3,
@@ -315,16 +346,16 @@ def main() -> int:
         passage_ratio=2,
         passage_node_weight=0.05,
         damping=0.5,
-        # MiniLM 在第二跳的句子相似度约为 0.088；0.05 保持官方阈值规则不变，
-        # 同时让这个极小 CPU 示例能够呈现预期的 Germany 传播。
+        # MPNet 在这个极小样本上的第二跳句子相似度约为 0.176；
+        # 0.05 是本冒烟测试专用阈值，用于稳定展示预期的 Germany 传播。
         iteration_threshold=0.05,
-        use_vectorized_retrieval=False,
+        use_vectorized_retrieval=args.use_vectorized_retrieval,
     )
     rag = ObservableLinearRAG(config)
     indexed_passages = [f"{index}:{text}" for index, text in enumerate(payload["passages"])]
     rag.index(indexed_passages)
 
-    ner_results = json.loads((ROOT / "import" / "smoke" / "ner_results.json").read_text())
+    ner_results = json.loads((CACHE_DIR / "smoke_gpu" / "ner_results.json").read_text())
     retrieval = rag.retrieve(
         [{"question": payload["question"], "answer": payload["expected_answer"]}]
     )[0]
@@ -350,7 +381,7 @@ def main() -> int:
         "actual_igraph_vertices": rag.graph.vcount(),
         "actual_igraph_edges": rag.graph.ecount(),
         "actual_igraph_edge_types": edge_type_counts,
-        "entity_sentence_links_used_by_bfs": sum(
+        "entity_sentence_links": sum(
             len(sentence_hashes)
             for sentence_hashes in rag.entity_hash_id_to_sentence_hash_ids.values()
         ),
@@ -376,14 +407,16 @@ def main() -> int:
     memory_info = process.memory_info()
     report = {
         "status": "passed" if expectation["all_passed"] else "failed",
-        "working_directory": str(ROOT),
+        "working_directory": str(PROJECT_ROOT),
         "execution": {
             "python": platform.python_version(),
             "platform": platform.platform(),
             "spacy_model": args.spacy_model,
             "embedding_model": str(args.embedding_model),
-            "embedding_device": "cpu",
-            "retrieval_method": "official BFS iteration",
+            "embedding_device": str(model.device),
+            "retrieval_method": (
+                "vectorized matrix-based" if args.use_vectorized_retrieval else "official BFS iteration"
+            ),
             "openai_used": False,
             "elapsed_seconds": elapsed,
             "process_rss_before_mib": rss_before / (1024**2),
@@ -397,7 +430,7 @@ def main() -> int:
             "gpu_after": _gpu_snapshot(),
         },
         "original_input": original_payload,
-        "original_ner_failure_evidence": original_ner,
+        "original_ner_observation": original_ner,
         "adjusted_input": payload,
         "adjusted_ner": adjusted_ner,
         "official_saved_ner_results": ner_results,

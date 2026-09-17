@@ -1,10 +1,9 @@
 
-results/
 .env
 .venv
-dataset/
-import/
-model/
+data/input/datasets/
+data/input/models/
+data/output/
 scripts/
 
 .DS_Store
@@ -12,5 +11,4 @@ scripts/
 # all pycache files, including those in subdirectories
 __pycache__/
 */__pycache__/
-
 
