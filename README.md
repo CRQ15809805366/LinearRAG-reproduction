@@ -5,7 +5,8 @@ The repository is organized into three areas:
 - `src/`: Python implementation and executable entry points.
 - `data/input/`: datasets, local models, and fixed example inputs.
 - `data/output/`: rebuildable caches and generated experiment results.
-- `project/`: papers, observations, execution records, plans, and project documentation.
+- `project/human/`: personal observations, plans, and other human-facing project documentation.
+- `project/agent/`: operational context and source material used by future Codex sessions, including the paper and recovered experiment parameters.
 
 Run the formal entry point from the repository root with:
 

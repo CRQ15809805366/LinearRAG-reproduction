@@ -40,7 +40,11 @@ def parse_arguments():
     parser.add_argument("--passage_ratio", type=float, default=2, help="The ratio for passage")
     parser.add_argument("--top_k_sentence", type=int, default=3, help="The top k sentence to use")
     parser.add_argument("--use_vectorized_retrieval", action="store_true", help="Use vectorized matrix-based retrieval instead of BFS iteration")
-    return parser.parse_args()
+    parser.add_argument("--max_questions", type=int, default=None, help="Only run the first N questions")
+    args = parser.parse_args()
+    if args.max_questions is not None and args.max_questions <= 0:
+        parser.error("--max_questions must be greater than 0")
+    return args
 
 
 def load_dataset(dataset_name): 
@@ -75,6 +79,8 @@ def main():
     # 加载嵌入模型和数据集，设置日志记录
     embedding_model = load_embedding_model(args.embedding_model)
     questions, passages = load_dataset(args.dataset_name)
+    if args.max_questions is not None:
+        questions = questions[:args.max_questions]
     output_dir = RUNS_DIR / args.dataset_name / time_str
     setup_logging(str(output_dir / "log.txt"))
 
