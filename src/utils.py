@@ -17,6 +17,41 @@ import logging
 import numpy as np
 import os
 
+from src.paths import PROJECT_ROOT
+
+
+_OPENAI_ENV_NAMES = ("OPENAI_API_KEY", "OPENAI_BASE_URL")
+
+
+def _parse_env_value(raw_value: str) -> str:
+    value = raw_value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        value = value[1:-1]
+    return value
+
+
+def _load_local_openai_credentials() -> Dict[str, str]:
+    path = PROJECT_ROOT / ".env.local"
+    if not path.is_file():
+        raise RuntimeError(f"Missing local credential file: {path}")
+
+    values: Dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, raw_value = line.split("=", 1)
+        name = name.strip()
+        if name in _OPENAI_ENV_NAMES:
+            values[name] = _parse_env_value(raw_value)
+
+    missing = [name for name in _OPENAI_ENV_NAMES if not values.get(name)]
+    if missing:
+        raise RuntimeError(
+            f"Missing credentials in {path}: {', '.join(missing)}"
+        )
+    return values
+
 
 def compute_mdhash_id(content: str, prefix: str = "") -> str:
     """计算内容的 MD5 哈希标识，并在需要时添加命名空间前缀。"""
@@ -26,10 +61,11 @@ def compute_mdhash_id(content: str, prefix: str = "") -> str:
 # LLM 模型封装类
 class LLM_Model:
     def __init__(self, llm_model):
+        credentials = _load_local_openai_credentials()
         http_client = httpx.Client(timeout=60.0, trust_env=False)
         self.openai_client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL"),
+            api_key=credentials["OPENAI_API_KEY"],
+            base_url=credentials["OPENAI_BASE_URL"],
             http_client=http_client
         )
 
@@ -38,6 +74,8 @@ class LLM_Model:
             "max_tokens": 2000,
             "temperature": 0,
         }
+        if llm_model == "qwen3.8-flash":
+            self.llm_config["extra_body"] = {"enable_thinking": False}
 
     def infer(self, messages):
         response = self.openai_client.chat.completions.create(**self.llm_config, messages=messages)

@@ -15,9 +15,12 @@ This file is operational context for future Codex sessions. It is not a tutorial
 - `src/` contains Python implementation and both entry points.
 - `data/input/` contains local datasets, embedding models, and tracked smoke inputs.
 - `data/output/` contains rebuildable caches and generated results; it is ignored by Git.
-- `project/human/` contains personal observations and human-facing project documentation.
-- `project/agent/` contains operational context and source material intended for future Codex sessions; the paper and recovered experiment parameters live under `project/agent/paper/`.
+- `project/human/` contains the user's private learning notes, plans, and interpretations.
+- `project/agent/` contains curated operational context, experiment records, decisions, and source material intended for future Codex sessions; the paper and recovered experiment parameters live under `project/agent/paper/`.
+- Bulk experiment logs, predictions, metrics, caches, and generated run results belong under `data/output/`, not `project/agent/`.
+- `research_report/` contains externally readable research reports, curated figures and tables, and presentation material. Its claims must remain traceable to internal experiment records and raw runtime evidence.
 - Project-owned paths must be derived from `src.paths.PROJECT_ROOT` and passed into core code. Do not reintroduce paths whose meaning depends on the shell's current directory.
+- OpenAI-compatible credentials are read directly by `src.utils` from the untracked project-root `.env.local` and passed explicitly to the OpenAI client. They are not injected into the process environment. Do not commit or display that file. The Windows user-level copies were removed on 2026-09-21 to avoid overriding CC Switch globally.
 - Run entry points as modules from the repository root:
 
 ```powershell
@@ -59,7 +62,7 @@ Snapshot date: 2026-09-17.
 - Retrieval: default BFS path with the paper-derived 2Wiki parameters (`max_iterations=3`, `passage_ratio=0.05`, `iteration_threshold=0.4`, `top_k_sentence=1`).
 - Generation and evaluation model: the `src.run` default, `qwen3.8-flash`, through the existing OpenAI-compatible client.
 - Index state: warm cache reused from `data/output/cache/2wikimultihop/` (658 passages, 41,243 entities, and 21,023 sentences). This was not a cold-index timing run.
-- Output: `data/output/runs/2wikimultihop/2026-09-17_14-29-07/` with 10 predictions, five retrieved passages per prediction, and both output JSON files present.
+- Output: `data/output/experiment_results/2wikimultihop/2026-09-17_14-29-07/` with 10 predictions, five retrieved passages per prediction, and both output JSON files present.
 - Final result: process exit code `0`; LLM accuracy `1.0` (10/10); contain accuracy `0.9` (9/10).
 - The contain-only miss was orthographic: gold `Ailéan mac Ruaidhrí` versus prediction `Ailean mac Ruaidhrí`; the LLM evaluator marked it correct.
 - Scope: this proves a bounded end-to-end `src.run` execution across retrieval, generation, persistence, and evaluation. It does not reproduce the paper's 1,000-question GPT-4o-mini result.
@@ -95,3 +98,14 @@ https://github.com/DEEP-PolyU/LinearRAG.git
 ```
 
 Never push to this remote. Before any future upload, create or select a user-owned repository, change or add the remote, display `git remote -v`, and verify the exact destination with the user. A local commit is not authorization to push.
+
+## Research record structure
+
+Snapshot date: 2026-09-17.
+
+- `BASELINE.md` remains the top-level operational entry point.
+- `experiments/` indexes formal evaluation designs, runs, evidence locations, and analyses without duplicating bulk runtime outputs.
+- `decisions/` records consequential research and repository decisions.
+- `history/` stores historical provenance and migration records, including `UPSTREAM_IMPORT_ARCHIVE.md`.
+- `paper/` stores Agent-facing paper source material and recovered experiment parameters.
+- `research_report/` is a separate repository-root layer for externally readable research output; it is not a substitute for raw evidence or internal experiment records.

@@ -13,5 +13,5 @@ MODELS_DIR = INPUT_DIR / "models"
 EXAMPLES_DIR = INPUT_DIR / "examples"
 
 CACHE_DIR = OUTPUT_DIR / "cache"
-RUNS_DIR = OUTPUT_DIR / "runs"
+EXPERIMENT_RESULTS_DIR = OUTPUT_DIR / "experiment_results"
 SMOKE_OUTPUT_DIR = OUTPUT_DIR / "smoke"

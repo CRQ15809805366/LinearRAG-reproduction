@@ -19,7 +19,7 @@ import warnings
 from src.evaluate import Evaluator
 from src.utils import LLM_Model
 from src.utils import setup_logging
-from src.paths import DATASETS_DIR, MODELS_DIR, RUNS_DIR
+from src.paths import DATASETS_DIR, MODELS_DIR, EXPERIMENT_RESULTS_DIR
 
 from datetime import datetime
 
@@ -81,7 +81,7 @@ def main():
     questions, passages = load_dataset(args.dataset_name)
     if args.max_questions is not None:
         questions = questions[:args.max_questions]
-    output_dir = RUNS_DIR / args.dataset_name / time_str
+    output_dir = EXPERIMENT_RESULTS_DIR / args.dataset_name / time_str
     setup_logging(str(output_dir / "log.txt"))
 
     # 导入配置

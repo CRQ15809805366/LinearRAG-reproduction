@@ -1,5 +1,6 @@
 
 .env
+.env.local
 .venv
 data/input/datasets/
 data/input/models/
@@ -11,4 +12,3 @@ scripts/
 # all pycache files, including those in subdirectories
 __pycache__/
 */__pycache__/
-

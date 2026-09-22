@@ -7,6 +7,7 @@
 import spacy
 from collections import defaultdict
 import pdb
+from tqdm import tqdm
 
 
 class SpacyNER:
@@ -22,7 +23,7 @@ class SpacyNER:
         passage_list = list(hash_id_to_passage.values())
 
         # 计算批处理大小，并使用 spaCy 的管道方法进行批量处理
-        batch_size = len(passage_list) // max_workers
+        batch_size = max(1, min(max_workers, len(passage_list)))
         docs_list = self.spacy_model.pipe(passage_list, batch_size=batch_size)
 
         # 初始化字典来存储每个片段的哈希 ID 到实体的映射，以及每个句子到实体的映射
@@ -30,7 +31,7 @@ class SpacyNER:
         sentence_to_entities = defaultdict(list)
 
         # 遍历处理后的文档列表，提取实体和句子
-        for idx, doc in enumerate(docs_list):
+        for idx, doc in enumerate(tqdm(docs_list, total=len(passage_list), desc="NER indexing")):
             # 获取当前片段的哈希 ID, 以及单个片段的哈希 ID / 句子 到实体的映射
             passage_hash_id = list(hash_id_to_passage.keys())[idx]
             single_passage_hash_id_to_entities, single_sentence_to_entities = self.extract_entities_sentences(doc, passage_hash_id)
