@@ -16,7 +16,13 @@ neither measured stage calls a generative LLM.
 Raw evidence is written to
 `data/output/experiment_results/q2_efficiency_analysis/<experiment-id>/`.
 
-Run the first-stage design check from the repository root:
+The design check and 100-question bounded retrieval experiment have completed.
+The three independent cold-index measurements are recorded in the Agent
+experiment record. See `project/agent/experiments/q2_efficiency_analysis/README.md`
+and `RUN_2026-09-20_100Q.md` before interpreting timings.
+
+To run a new first-stage design check from the repository root with a fresh
+experiment ID:
 
 ```powershell
 .venv\Scripts\python.exe experiments\q2_efficiency_analysis\efficiency_analysis.py --experiment-id q2-design-check

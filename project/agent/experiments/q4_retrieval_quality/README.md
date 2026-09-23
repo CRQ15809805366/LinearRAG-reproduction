@@ -2,32 +2,37 @@
 
 ## Status
 
-The balanced 200-question formal bounded run completed on 2026-09-20. See
-`RUN_2026-09-20_200Q.md`.
+The balanced 200-question formal bounded run completed on 2026-09-20. This is
+the primary Q4 result; see `RUN_2026-09-20_200Q.md` for the protocol and
+comparison.
 
 The first-stage balanced 12-question design check also completed on
 2026-09-20.
 
 Primary raw evidence:
+`data/output/experiment_results/q4_retrieval_quality/q4-formal-200q-20260920/`
+
+The 12-question design check under
 `data/output/experiment_results/q4_retrieval_quality/q4-design-check-20260920/`
+is a pipeline check, not the primary result.
 
 ## Question and bounded scope
 
 Paper Q4 asks whether LinearRAG can retain high evidence recall while improving
-the relevance of retrieved context across Fact Retrieval, Complex Reasoning,
-Contextual Summarize, and Creative Generation tasks. This local design check
-compares Vanilla RAG and the original BFS LinearRAG retrieval path on three
-fixed-seed Medical questions from each task type.
+the relevance of retrieved context across four Medical task types. The formal
+run compares Vanilla RAG and the original BFS LinearRAG retrieval path on 50
+fixed-seed questions per type.
 
-This is a pipeline and metric check, not a reproduction of paper Table 4. The
+This is a bounded local comparison, not a reproduction of paper Table 4. The
 local run uses `qwen3.8-flash` as the retrieval judge and does not execute the
-paper's other GraphRAG baselines.
+paper's other GraphRAG baselines. The smaller 12-question design check validates
+the data path and metrics only.
 
 ## Controls
 
 - Dataset: Medical, complete 225-passage corpus.
-- Sample: three questions from each of four task types, selected with seed
-  `20260920`; 12 questions total.
+- Formal sample: 50 questions from each of four task types; 200 total.
+- Design-check sample: three questions per type; 12 total.
 - Methods: Vanilla RAG Top-5 and original LinearRAG BFS Top-5.
 - Embedding model: `data/input/models/all-mpnet-base-v2` on CUDA.
 - Medical NER model: `en_core_sci_scibert`.
@@ -37,13 +42,13 @@ paper's other GraphRAG baselines.
 - Metrics: context relevance and evidence recall, adapted from the official
   MIT-licensed GraphRAG-Benchmark retrieval evaluator.
 
-## Command
+## Design-check command
 
 ```powershell
 .venv\Scripts\python.exe experiments\q4_retrieval_quality\retrieval_quality.py --questions-per-type 3 --experiment-id q4-design-check-20260920
 ```
 
-## Executed results
+## Design-check results
 
 | Method | Macro context relevance | Macro evidence recall |
 |---|---:|---:|

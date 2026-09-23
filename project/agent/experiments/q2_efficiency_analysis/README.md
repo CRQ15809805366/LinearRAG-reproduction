@@ -52,9 +52,11 @@ path. Answer generation and LLM evaluation were excluded.
 | LLM calls during indexing and retrieval | 0 |
 | Prompt/completion tokens | 0 / 0 |
 
-All ten questions returned exactly five passages. The cold cache contains 658
-passage embeddings, 41,243 entity embeddings, 21,023 sentence embeddings,
-NER mappings for all 658 passages, and a generated GraphML file.
+All ten questions returned exactly five passages. During indexing, the isolated
+cold cache held 658 passage embeddings, 41,243 entity embeddings, 21,023
+sentence embeddings, NER mappings for all 658 passages, and a generated GraphML
+file. The temporary per-run caches have since been removed; measured timing
+records and run metadata remain.
 
 The paper reports 249.78 seconds for indexing and 0.093 seconds per retrieval
 on different hardware and a 1,000-question protocol. The local values are not

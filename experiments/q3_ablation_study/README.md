@@ -1,14 +1,7 @@
 # Q3 Ablation Study
 
-Run the first-stage three-variant check on ten fixed 2WikiMultiHopQA questions:
+This directory contains the Q3 experiment implementations. `ablation_study.py` runs the ten-question design check; `formal_ablation.py` runs the bounded 100-question-per-dataset comparison.
 
-```powershell
-.venv\Scripts\python.exe experiments\q3_ablation_study\ablation_study.py --experiment-id q3-design-check-20260920
-```
+The bounded formal run completed for HotpotQA, 2WikiMultiHopQA, MuSiQue, and Medical. Its primary evidence is under `data/output/experiment_results/q3_ablation_study/q3-formal-10pct-20260920/`; design-check evidence is under `data/output/experiment_results/q3_ablation_study/q3-design-check-clean-20260920/`. The Agent-facing results and interpretation are in `project/agent/experiments/q3_ablation_study/RESULTS_2026-09-20_10PCT.md`.
 
-If a long run is interrupted after a variant completes, rerun the same command
-with `--resume`; completed variants are loaded from their saved evidence.
-
-Use `--retrieval-only` to validate the three retrieval paths before making any
-generation or evaluator calls. Raw results are written below
-`data/output/runs/q3_ablation_study/<experiment-id>/`.
+The local run compares the full method with two operational ablations. Results are bounded local evidence using `qwen3.8-flash`; they do not reproduce the paper's 1,000-question GPT-4o-mini evaluation. See the Agent record for definitions and limits.

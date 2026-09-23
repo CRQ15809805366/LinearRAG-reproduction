@@ -16,8 +16,9 @@ Run the bounded four-dataset experiment (100 questions per dataset by default):
 .venv\Scripts\python.exe experiments\q1_generation_accuracy\generation_accuracy.py
 ```
 
-The full run requires `OPENAI_API_KEY` and, when applicable, `OPENAI_BASE_URL`
-to be available to the process.
+Generation and evaluation credentials are read directly from the untracked
+project-root `.env.local` by `src.utils`. The values do not need to be set in
+the process environment; do not commit or display the credential file.
 
 For a small end-to-end trial, select one dataset and a smaller sample:
 

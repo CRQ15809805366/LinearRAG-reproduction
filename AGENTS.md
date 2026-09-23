@@ -1,6 +1,7 @@
 # Repository instructions
 
-- Keep the four top-level concerns separate: Python code in `src/`, runtime inputs and outputs in `data/`, internal project records in `project/`, and externally readable research material in `research_report/`.
+- Keep the four main concerns separate: core Python code in `src/`, runtime inputs and outputs in `data/`, internal records in `project/`, and externally readable research material in `research_report/`. Keep bounded experiment adapters and usage notes in `experiments/`; they configure studies around `src/` and write generated evidence under `data/output/`.
+- Start with `project/agent/experiments/README.md` for current Q1-Q8 status and evidence paths.
 - Treat the reproduced LinearRAG implementation as an experimental object. Do not refactor algorithms or change behavior unless the task explicitly requires it.
 - Run the minimal smoke test with `python -m src.smoke_test`; do not present it as the full `src.run` experiment.
 - Keep the default BFS retrieval path distinct from the optional `--use-vectorized-retrieval` path.

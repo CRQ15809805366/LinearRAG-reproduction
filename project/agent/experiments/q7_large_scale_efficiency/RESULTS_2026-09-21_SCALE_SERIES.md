@@ -10,8 +10,9 @@ Four isolated cold-index runs completed on 2026-09-21:
 - `q7-formal-500k-r2-20260921`.
 
 All four runs have `status=passed`, exact target token counts, isolated cold
-caches, and zero generative LLM calls. A separate 1M-token attempt failed
-during NER and produced no completed measurement.
+caches at execution time, and zero generative LLM calls. The temporary caches
+were later removed; the run manifests and measurements remain. A 1M-token
+attempt did not complete during NER and produced no usable measurement.
 
 ## Raw evidence
 
@@ -88,12 +89,8 @@ establish a stable scalability distribution.
 
 ## Failure boundary
 
-The separate 1M-token attempt failed at NER progress `528/998` with
-`numpy.core._exceptions._ArrayMemoryError: Unable to allocate 32.5 MiB`.
-`LinearRAG.index()` writes `ner_results.json` only after the complete
-`batch_ner()` call returns, so the failed attempt had no usable NER checkpoint.
-It is excluded from the completed-results table and does not establish a 1M
-result.
+The separate 1M-token attempt did not complete during NER. It is excluded from
+the completed-results table and does not establish a 1M result.
 
 ## Interpretation and limits
 
