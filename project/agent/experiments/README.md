@@ -27,6 +27,8 @@ When auditing a run, first read the question's README and any linked `RESULTS_*.
 
 Each question directory contains its design, detailed evidence, commands, and limits. Read the linked result record before reusing numerical claims. The full local runs mostly use `qwen3.8-flash`; distinguish those from the paper's model and sample sizes.
 
+The static Q3/Q4 paper-to-local comparison, including Figure 4/Table 4 source values, protocol mismatches, and old-run alignment checks, is recorded in `Q3_Q4_DISCREPANCY_AUDIT_GATE1.md`. It is a gate-1 audit only; it does not claim residual algorithmic causes or repeatability.
+
 ## Maintenance rules
 
 - Keep the reproduced algorithms unchanged unless the user explicitly requests a behavioral change.

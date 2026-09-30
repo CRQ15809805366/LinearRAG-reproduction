@@ -70,7 +70,7 @@ def parse_args() -> argparse.Namespace:
         parser.error("--max-questions must be greater than 0")
     return args
 
-# 用固定随机种子抽取 10 道题，并加载完整语料
+# 用固定随机种子抽取题，并加载完整语料
 def load_inputs(max_questions: int, seed: int):
     """Select one immutable question set shared by all embedding models."""
     dataset_dir = DATASETS_DIR / DATASET_NAME

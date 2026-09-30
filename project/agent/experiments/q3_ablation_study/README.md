@@ -12,8 +12,9 @@ See `RESULTS_2026-09-20_10PCT.md` for the measured outcomes and limits.
 
 ## Code and design
 
-- Design check: `experiments/q3_ablation_study/ablation_study.py`.
-- Bounded formal run: `experiments/q3_ablation_study/formal_ablation.py`.
+- Canonical variant implementation, validation, evaluation, and summary: `experiments/q3_ablation_study/formal_ablation.py`.
+- Bounded formal entry point: `experiments/q3_ablation_study/formal_ablation.py`.
+- The design-check runner at `experiments/q3_ablation_study/ablation_study.py` imports and reuses the canonical formal implementation.
 - Full variant: original BFS entity propagation followed by personalized PageRank.
 - `without_entity_activation`: query seed entities only, retaining PPR.
 - `without_global_importance`: keeps initial passage scoring and removes PPR.

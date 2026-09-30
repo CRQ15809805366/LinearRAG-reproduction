@@ -88,7 +88,7 @@ def write_json(path: Path, value: Any) -> None:
 
 """加载全部 2Wiki chunks;
 给所有 passage 加上编号；
-按固定种子抽取 10 个问题。"""
+按固定种子抽取问题。"""
 def load_inputs(max_questions: int, seed: int) -> tuple[list[dict], list[str], list[str]]:
     dataset_dir = DATASETS_DIR / DATASET_NAME
     with (dataset_dir / "questions.json").open(encoding="utf-8") as stream:

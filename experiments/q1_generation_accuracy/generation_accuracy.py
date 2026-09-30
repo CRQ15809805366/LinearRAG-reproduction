@@ -148,7 +148,7 @@ def run_linearrag(
     max_workers: int,
 ) -> list[dict]:
     params = DATASET_CONFIGS[dataset_name]
-    config = LinearRAGConfig(
+    config = LinearRAGConfig(0
         dataset_name=dataset_name,
         embedding_model=embedding_model,
         llm_model=llm_model,

@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import torch
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
@@ -20,17 +21,255 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from experiments.q3_ablation_study.ablation_study import (
-    AblationLinearRAG,
-    VARIANTS,
-    build_summary,
-    evaluate_predictions,
-    validate_retrieval,
-    write_json,
-)
 from src.config import LinearRAGConfig
+from src.evaluate import Evaluator
+from src.LinearRAG import LinearRAG
 from src.paths import CACHE_DIR, DATASETS_DIR, EXPERIMENT_RESULTS_DIR, MODELS_DIR
 from src.utils import LLM_Model, setup_logging
+
+
+VARIANTS = (
+    "full",
+    "without_entity_activation",
+    "without_global_importance",
+)
+
+
+def write_json(path: Path, value) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2, default=json_default)
+
+
+def json_default(value):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    raise TypeError(f"Cannot serialize {type(value).__name__}")
+
+
+class AblationLinearRAG(LinearRAG):
+    """Expose the two paper-defined Q3 ablations without changing src/LinearRAG.py."""
+
+    def __init__(self, global_config: LinearRAGConfig, variant: str):
+        if variant not in VARIANTS:
+            raise ValueError(f"Unknown Q3 variant: {variant}")
+        self.variant = variant
+        self.diagnostics: list[dict] = []
+        self.ppr_calls = 0
+        super().__init__(global_config)
+
+    # 实现“去掉实体激活”, 关闭语义桥接
+    def _seed_entities_only(
+        self,
+        seed_entity_indices,
+        seed_entities,
+        seed_entity_hash_ids,
+        seed_entity_scores,
+    ):
+        """Keep query seed entities but suppress entity-to-sentence-to-entity propagation."""
+        active_entities = {}
+        entity_weights = np.zeros(len(self.graph.vs["name"]))
+        for entity_index, entity, entity_hash_id, score in zip(
+            seed_entity_indices,
+            seed_entities,
+            seed_entity_hash_ids,
+            seed_entity_scores,
+        ):
+            active_entities[entity_hash_id] = (entity_index, score, 1)
+            entity_weights[self.node_name_to_vertex_idx[entity_hash_id]] = score
+        return entity_weights, active_entities
+
+    # 去掉全局重要性聚合
+    def _rank_initial_passage_weights(self, passage_weights):
+        """Rank passage nodes directly, omitting personalized PageRank."""
+        scores = np.array([passage_weights[index] for index in self.passage_node_indices])
+        order = np.argsort(scores)[::-1]
+        passage_hash_ids = [
+            self.vertex_idx_to_node_name[self.passage_node_indices[index]] for index in order
+        ]
+        return passage_hash_ids, scores[order].tolist()
+
+    def run_ppr(self, node_weights):
+        self.ppr_calls += 1
+        return super().run_ppr(node_weights)
+
+    """它是三条实验路径的分岔点：
+       判断当前运行哪个变体；
+       选择是否执行实体传播；
+       选择是否执行 PPR；
+       记录种子实体、传播实体和 PPR 使用情况。"""
+    def graph_search_with_seed_entities(
+        self,
+        question,
+        question_embedding,
+        seed_entity_indices,
+        seed_entities,
+        seed_entity_hash_ids,
+        seed_entity_scores,
+    ):
+        if self.variant == "without_entity_activation":
+            entity_weights, active_entities = self._seed_entities_only(
+                seed_entity_indices,
+                seed_entities,
+                seed_entity_hash_ids,
+                seed_entity_scores,
+            )
+        else:
+            entity_weights, active_entities = self.calculate_entity_scores(
+                question_embedding,
+                seed_entity_indices,
+                seed_entities,
+                seed_entity_hash_ids,
+                seed_entity_scores,
+            )
+
+        passage_weights = self.calculate_passage_scores(
+            question, question_embedding, active_entities
+        )
+        if self.variant == "without_global_importance":
+            passage_ids, passage_scores = self._rank_initial_passage_weights(passage_weights)
+            used_ppr = False
+        else:
+            passage_ids, passage_scores = self.run_ppr(entity_weights + passage_weights)
+            used_ppr = True
+
+        seed_hash_ids = set(seed_entity_hash_ids)
+        active_hash_ids = set(active_entities)
+        self.diagnostics.append({
+            "question": question,
+            "seed_entity_count": len(seed_hash_ids),
+            "active_entity_count": len(active_hash_ids),
+            "propagated_entity_count": len(active_hash_ids - seed_hash_ids),
+            "used_ppr": used_ppr,
+        })
+        return passage_ids, passage_scores
+
+# 检查实验是否按设计执行, 即"我们拆的零件对不对"
+def validate_retrieval(
+    variant: str,
+    results: list[dict],
+    diagnostics: list[dict],
+    ppr_calls: int,
+    expected_count: int,
+) -> dict:
+    if len(results) != expected_count:
+        raise AssertionError(f"{variant}: expected {expected_count} results, got {len(results)}")
+    for index, result in enumerate(results):
+        if len(result["sorted_passage"]) != 5 or len(result["sorted_passage_scores"]) != 5:
+            raise AssertionError(f"{variant}: question {index} did not return five passages/scores")
+
+    graph_queries = len(diagnostics)
+    dense_fallback_queries = expected_count - graph_queries
+    if variant == "without_entity_activation":
+        if any(item["propagated_entity_count"] != 0 for item in diagnostics):
+            raise AssertionError("Entity-activation ablation produced propagated entities")
+        if ppr_calls != graph_queries:
+            raise AssertionError("Entity-activation ablation did not preserve PPR")
+    elif variant == "without_global_importance":
+        if ppr_calls != 0 or any(item["used_ppr"] for item in diagnostics):
+            raise AssertionError("Global-importance ablation invoked PPR")
+    elif ppr_calls != graph_queries:
+        raise AssertionError("Full variant did not invoke PPR for every graph query")
+
+    return {
+        "status": "passed",
+        "result_count": len(results),
+        "passages_per_result": 5,
+        "graph_query_count": graph_queries,
+        "dense_fallback_query_count": dense_fallback_queries,
+        "ppr_call_count": ppr_calls,
+        "propagated_entity_counts": [
+            item["propagated_entity_count"] for item in diagnostics
+        ],
+    }
+
+
+def evaluate_predictions(
+    predictions: list[dict],
+    output_dir: Path,
+    llm_model: LLM_Model,
+    max_workers: int,
+) -> dict:
+    predictions_path = output_dir / "predictions.json"
+    write_json(predictions_path, predictions)
+    evaluator = Evaluator(llm_model=llm_model, predictions_path=str(predictions_path))
+    llm_accuracy, contain_accuracy = evaluator.evaluate(max_workers=max_workers)
+    return {
+        "llm_accuracy": llm_accuracy,
+        "contain_accuracy": contain_accuracy,
+        "average_accuracy": (llm_accuracy + contain_accuracy) / 2,
+        "sample_count": len(predictions),
+    }
+
+""" 两层观察：
+1. 最终答案准确率有没有下降；
+2. 即使答案没下降，底层 Top-5 检索是否已经变化。"""
+def compare_retrievals(full_predictions: list[dict], ablated_predictions: list[dict]) -> dict:
+    per_question = []
+    for full, ablated in zip(full_predictions, ablated_predictions):
+        full_passages = full["sorted_passage"]
+        ablated_passages = ablated["sorted_passage"]
+        overlap_count = len(set(full_passages) & set(ablated_passages))
+        per_question.append({
+            "id": full.get("id"),
+            "top5_overlap_count": overlap_count,
+            "top5_overlap_ratio": overlap_count / 5,
+            "same_ranked_top5": full_passages == ablated_passages,
+            "same_generated_answer": full.get("pred_answer") == ablated.get("pred_answer"),
+        })
+    return {
+        "mean_top5_overlap_ratio": float(np.mean([
+            item["top5_overlap_ratio"] for item in per_question
+        ])),
+        "questions_with_changed_top5_set": sum(
+            item["top5_overlap_count"] < 5 for item in per_question
+        ),
+        "questions_with_changed_top5_ranking": sum(
+            not item["same_ranked_top5"] for item in per_question
+        ),
+        "questions_with_changed_generated_answer": sum(
+            not item["same_generated_answer"] for item in per_question
+        ),
+        "per_question": per_question,
+    }
+
+def build_summary(
+    variant_metrics: dict[str, dict],
+    variant_predictions: dict[str, list[dict]],
+    dataset_name: str,
+) -> dict:
+    full = variant_metrics["full"]
+    primary_metric = "llm_accuracy" if dataset_name == "medical" else "average_accuracy"
+    rows = []
+    for variant in VARIANTS:
+        metrics = variant_metrics[variant]
+        rows.append({
+            "variant": variant,
+            **metrics,
+            "primary_metric": primary_metric,
+            "primary_accuracy": metrics[primary_metric],
+            "full_minus_variant": {
+                metric: full[metric] - metrics[metric]
+                for metric in ("llm_accuracy", "contain_accuracy", "average_accuracy")
+            },
+        })
+    retrieval_comparisons = {
+        variant: compare_retrievals(
+            variant_predictions["full"], variant_predictions[variant]
+        )
+        for variant in VARIANTS
+        if variant != "full"
+    }
+    return {
+        "dataset": dataset_name,
+        "variants": rows,
+        "retrieval_comparisons_against_full": retrieval_comparisons,
+    }
+
 
 
 DATASET_CONFIGS = {
