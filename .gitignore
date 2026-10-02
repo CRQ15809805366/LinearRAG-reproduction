@@ -6,7 +6,9 @@ data/input/datasets/
 data/input/derived_corpora/
 data/input/models/
 data/output/
+data/cache/
 scripts/
+plan/
 
 .DS_Store
 

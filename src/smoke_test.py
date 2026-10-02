@@ -21,13 +21,13 @@ import psutil
 import spacy
 from sentence_transformers import SentenceTransformer
 
-from src.linearrag.LinearRAG import LinearRAG
-from src.linearrag.config import LinearRAGConfig
-from src.paths import CACHE_DIR, EXAMPLES_DIR, MODELS_DIR, PROJECT_ROOT, SMOKE_OUTPUT_DIR
+from src.methods.linear.LinearRAG import LinearRAG
+from src.methods.linear.config import LinearRAGConfig
+from src.paths import DATASET_CACHE_DIR, INPUT_DIR, MODELS_DIR, PROJECT_ROOT, SMOKE_OUTPUT_DIR
 
 
-DEFAULT_INPUT = EXAMPLES_DIR / "smoke" / "input.json"
-ORIGINAL_INPUT = EXAMPLES_DIR / "smoke" / "original_input.json"
+DEFAULT_INPUT = INPUT_DIR / "smoke" / "input.json"
+ORIGINAL_INPUT = INPUT_DIR / "smoke" / "original_input.json"
 DEFAULT_OUTPUT = SMOKE_OUTPUT_DIR / "smoke_result.json"
 
 
@@ -318,6 +318,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """运行真实索引与检索，验证 BFS 或显式选择的向量化路径。"""
     args = parse_args()
     started = time.perf_counter()
     process = psutil.Process()
@@ -337,7 +338,7 @@ def main() -> int:
         embedding_model=model,
         llm_model=None,
         spacy_model=args.spacy_model,
-        working_dir=str(CACHE_DIR),
+        working_dir=str(DATASET_CACHE_DIR),
         batch_size=2,
         max_workers=1,
         retrieval_top_k=3,
@@ -355,7 +356,7 @@ def main() -> int:
     indexed_passages = [f"{index}:{text}" for index, text in enumerate(payload["passages"])]
     rag.index(indexed_passages)
 
-    ner_results = json.loads((CACHE_DIR / "smoke_gpu" / "ner_results.json").read_text())
+    ner_results = json.loads((rag.cache_directory / "ner_results.json").read_text())
     retrieval = rag.retrieve(
         [{"question": payload["question"], "answer": payload["expected_answer"]}]
     )[0]

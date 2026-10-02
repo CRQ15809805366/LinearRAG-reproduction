@@ -11,8 +11,8 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 from sentence_transformers import SentenceTransformer
 
-from src.linearrag.config import LinearRAGConfig
-from src.linearrag.LinearRAG import LinearRAG
+from src.methods.linear.config import LinearRAGConfig
+from src.methods.linear.LinearRAG import LinearRAG
 
 import warnings
 

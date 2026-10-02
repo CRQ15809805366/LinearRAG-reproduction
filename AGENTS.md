@@ -1,21 +1,14 @@
-# Repository instructions
+# 仓库规则
 
-- Keep directory responsibilities clear: core Python code in `src/`; runtime inputs and outputs in `data/`; internal records in `project/`; externally readable research material in `research_report/`; bounded experiment adapters and usage notes in `experiments/`. Generated experiment evidence belongs under `data/output/`.
-
-- Treat the reproduced LinearRAG implementation as an experimental object. Do not change algorithms or behavior unless the task explicitly requires it. Behavior-preserving structure and formatting refactors are allowed when requested. Keep default BFS retrieval distinct from the optional `--use-vectorized-retrieval` path in code, experiments, and claims.
-
-- Optimize readability for a person learning the project. Make the main flow, data transformations, and dependencies visible through clear names and explicit parameters or object members. Prefer ordinary functions or methods when closures obscure dependencies. Separate distinct responsibilities without splitting trivial steps into layers of helpers or introducing classes merely to eliminate closures. Use consistent spacing and readable multiline arguments and expressions. Blank lines are required both between functions and within functions: group related statements into cohesive functional blocks, and separate different blocks with blank lines so the internal stages are easy to follow. Do not leave an entire function as one uninterrupted block or insert blank lines mechanically after every statement.
-
-- Every Python file must have a module-level `"""..."""` docstring explaining its purpose, and every function or method must have a `"""..."""` docstring explaining what it does. Apply this standard when creating or editing code, without expanding a bounded task into a repository-wide documentation sweep. Write new or substantially revised docstrings and comments in Chinese. Add `#` comments at necessary points inside functions to explain intent, non-obvious steps, or consequential assumptions; do not annotate every line or repeat the code. Preserve identifiers, API names, paths, and technical literals in their original form.
-
-- Keep engineering bounded by the actual task. Make the smallest clear implementation that satisfies the request. Do not add speculative abstractions, frameworks, configuration layers, exhaustive edge-case handling, defensive wrappers, approval flows, or safety checks without a concrete need. Preserve existing behavior, necessary evidence integrity, and credential protection.
-
-- Keep verification proportional to the change. Use focused checks of affected behavior; do not add tests for completeness or repeat full experiments unnecessarily. Documentation and formatting changes do not require runtime experiments. When a project smoke check is needed, use `python -m src.smoke_test` and distinguish it from the full `src.run` experiment. When the user requests light testing, do not make paid API calls.
-
-- Resolve project-owned runtime paths through `src.paths`, not the caller's working directory. Do not commit local models, datasets, caches, generated run results, secrets, or virtual environments. Never push to the upstream authors' repository; configure and verify a user-owned remote before pushing.
-
-- Treat `project/human/` as the user's private learning, planning, and interpretation space; drafts there are not externally validated research claims. Quantitative claims in `research_report/` must be traceable through `project/agent/` to raw evidence under `data/output/`. Do not select or rewrite results merely to improve presentation.
-
-- Maintain concise English records under `project/agent/` for important decisions, experiment designs, verified state, and consequential recovery information. Preserve commands, paths, identifiers, and raw evidence in their original form. Bulk logs, predictions, caches, and run outputs belong under `data/output/`; do not create records for trivial work. Before version work or debugging runtime, environment, cache, or reproduction issues, inspect the relevant records: `project/agent/BASELINE.md` for environment/runtime context and `project/agent/experiments/README.md` for Q1-Q8 status and evidence paths. Update records when important facts change, and re-verify historical snapshots when needed.
-
-- Read `OPENAI_API_KEY` and `OPENAI_BASE_URL` directly from the untracked project-root `.env.local` and pass them to clients without injecting them into the process or global environment. Never commit, display, or copy its contents. Do not ask the user to re-enter credentials unless the file is absent or a live call proves them invalid. Record the actual model used for every experiment; local `qwen3.8-flash` results must not be presented as the paper's `gpt-4o-mini` results. Consult Agent records for historical environment details rather than treating them as permanent rules.
+- `docs/foundation/LINEARRAG_IMPORT.md` 和 `docs/foundation/HIPPORAG_IMPORT.md` 暂时封板，非用户显式明确否则不允许修改。两份文档记录基线来源与引入边界；实验方案维护在 `docs/foundation/EXPERIMENT_DESIGN.md`，数据与缓存约定维护在 `data/README.md`，当前状态维护在 `docs/EXPERIMENT_STATE.md`，生成结果的解释性记录保留在 `docs/records/`。
+- 保持目录职责清晰：方法实现放在 `src/methods/`（`linear/`、`vanilla/`、`hippo/`）；数据集构造源码放在 `src/datasets/`；实验 Python 代码放在 `src/experiments/`，保留按 Q 分组的结构；公共代码放在 `src/common/`，项目路径由 `src/paths.py` 解析。运行输入、缓存与输出放在 `data/`，生成的实验证据放在 `data/output/`。
+- 将复现的 LinearRAG 实现视为实验对象。除非任务明确要求，否则不得改变算法或行为。按要求可以进行保持行为不变的结构和格式重构。
+- 优先保证项目学习者能读懂。通过清晰命名、显式参数或对象成员，展现主流程、数据变换和依赖关系。闭包遮蔽依赖时，优先使用普通函数或方法。分离不同职责，但不要将简单步骤拆成多层辅助函数，也不要仅为消除闭包而引入类。保持一致的空格格式，参数和表达式较长时采用易读的多行写法。函数之间和函数内部都需要空行：将相关语句组织为连贯的功能块，用空行分隔不同功能块，使内部阶段清晰可见。不要将整个函数写成无间隔的一块，也不要机械地在每条语句后添加空行。
+- 新增的 Python 文件必须有模块级 `"""..."""` 文档字符串说明用途；新增或大幅改写的函数、方法必须有 `"""..."""` 文档字符串说明作用。不要为了满足该规则补写任务范围外的既有代码。新增或大幅改写的文档字符串和注释使用中文。在函数内必要的位置添加 `#` 注释，解释意图、不明显的步骤或影响结果的假设；不要逐行注释或重复代码。标识符、API 名称、路径和技术字面量保留原文。
+- 工程工作以实际任务为边界。采用满足需求的最小清晰实现。没有具体需要时，不增加推测性的抽象、框架、配置层、穷尽式边界处理、防御性包装、审批流程或安全检查。保持现有行为、必要的证据完整性和凭据保护。
+- 验证范围与改动相称。针对受影响行为进行必要检查；不要为了完整性而添加测试，也不要无必要地重复完整实验。文档和格式改动不需要运行实验。需要项目冒烟检查时，使用 `python -m src.smoke_test`，并与完整的 `src.run` 实验明确区分。用户要求轻量测试时，不调用付费 API。
+- 项目运行路径通过 `src.paths` 解析，不依赖调用者的工作目录。不要提交本地模型、数据集、缓存、生成的运行结果、密钥或虚拟环境。绝不推送到上游作者的仓库；推送前配置并核实用户自己的远程仓库。
+- 遇到联网超时时不要直接连续重试。先判断超时发生在 Codex、MCP 还是终端子进程；如果是终端子进程，检查并显式继承系统代理，然后只重试一次并报告错误。
+- 不得仅为改善呈现而筛选或改写结果。
+- 命令、路径、标识符和原始证据保留原文。批量日志、预测、缓存和运行输出放在 `data/output/`，解释性结果记录放在 `docs/records/`；不要为琐碎工作创建记录。
+- 直接从项目根目录未跟踪的 `.env.local` 读取 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`，传给客户端，不注入进程或全局环境。不得提交、展示或复制其内容。除非文件缺失或实际调用证明凭据无效，否则不要要求用户重新输入凭据。每次实验记录实际使用的模型；不得将本地 `qwen3.8-flash` 结果表述为论文的 `gpt-4o-mini` 结果。当前实验状态查阅 `docs/EXPERIMENT_STATE.md`，已执行实验查阅 `docs/records/`；更早的工程历史必要时通过 Git 历史核对。
