@@ -13,6 +13,9 @@ This file is operational context for future Codex sessions. It is not a tutorial
 ## Repository invariants
 
 - `src/` contains Python implementation and both entry points.
+- Since 2026-09-30, `src/linearrag/` holds the reproduced implementation, configuration and NER; `src/baselines/` holds Vanilla RAG and a thin adapter to external official HippoRAG 2024; `src/common/` holds shared storage, evaluation and utilities. `src.paths`, `src.run` and `src.smoke_test` remain at their original locations.
+- HippoRAG minimal integration and recovery evidence: `decisions/HIPPORAG_2024_INTEGRATION_2026-09-30.md`. External checkout `D:\code\HippoRAG-2024`, pinned `v1.0.0` plus documented compatibility patch, independent `.venv`; 12 synthetic passages / 3 questions passed. This does not change Q1-Q8 formal comparison status.
+- Migration verification and pre-existing experiment entry repairs: `decisions/SRC_LAYOUT_2026-09-30.md`.
 - `data/input/` contains local datasets, embedding models, and tracked smoke inputs.
 - `data/output/` contains rebuildable caches and generated results; it is ignored by Git.
 - `project/human/` contains the user's private learning notes, plans, and interpretations.
@@ -20,7 +23,7 @@ This file is operational context for future Codex sessions. It is not a tutorial
 - Bulk experiment logs, predictions, metrics, caches, and generated run results belong under `data/output/`, not `project/agent/`.
 - `research_report/` contains externally readable research reports, curated figures and tables, and presentation material. Its claims must remain traceable to internal experiment records and raw runtime evidence.
 - Project-owned paths must be derived from `src.paths.PROJECT_ROOT` and passed into core code. Do not reintroduce paths whose meaning depends on the shell's current directory.
-- OpenAI-compatible credentials are read directly by `src.utils` from the untracked project-root `.env.local` and passed explicitly to the OpenAI client. They are not injected into the process environment. Do not commit or display that file. The Windows user-level copies were removed on 2026-09-21 to avoid overriding CC Switch globally.
+- OpenAI-compatible credentials are read directly by `src.common.utils` from the untracked project-root `.env.local` and passed explicitly to the OpenAI client. They are not injected into the process environment. Do not commit or display that file. The Windows user-level copies were removed on 2026-09-21 to avoid overriding CC Switch globally.
 - Run entry points as modules from the repository root:
 
 ```powershell

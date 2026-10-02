@@ -18,7 +18,10 @@ Set-Location D:\code\LinearRAG-reproduction
 
 | 路径 | 用途 |
 |---|---|
-| `src/` | LinearRAG 核心实现、公共工具、主运行入口和 smoke 检查入口。理解算法时从这里看。 |
+| `src/` | 保留 `run.py`、`smoke_test.py` 运行入口和统一路径定义 `paths.py`。 |
+| `src/linearrag/` | LinearRAG 本体、运行配置和实体识别。理解算法时从这里看。 |
+| `src/baselines/` | 对照方法：普通向量 RAG，以及调用外部官方 HippoRAG 2024 的薄适配层；[最小接入说明](experiments/hipporag/README.md)。 |
+| `src/common/` | 共享的嵌入存储、评价和工具代码。 |
 | `experiments/` | Q1–Q8 实验脚本。它们为不同研究问题准备数据、设置条件和保存测量结果，调用 `src/` 中的实现。 |
 | `data/input/datasets/` | 本地数据集：HotpotQA、2WikiMultiHopQA、MuSiQue 和 Medical。 |
 | `data/input/models/` | 实验使用的本地嵌入模型文件。 |
@@ -65,6 +68,6 @@ Set-Location D:\code\LinearRAG-reproduction
 ## 阅读顺序建议
 
 1. 先读本页和 `project/agent/experiments/README.md`，了解项目结构和 Q1–Q8 的当前状态。
-2. 想理解 LinearRAG 怎么运行，再进入 `src/`，沿主入口查看索引、检索、问答和评估流程。
+2. 想理解 LinearRAG 怎么运行，从 `src/run.py` 进入 `src/linearrag/LinearRAG.py`，查看索引、检索和问答流程；评价代码在 `src/common/evaluate.py`。
 3. 想理解某项实验为什么这样设计，查看对应的 `experiments/q*/README.md` 和 `project/agent/experiments/q*/` 记录。
 4. 想看实际运行结果，进入记录给出的 `data/output/experiment_results/` 路径；不要把缓存目录和实验结果目录混为一谈。

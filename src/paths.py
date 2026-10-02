@@ -9,6 +9,7 @@ INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
 
 DATASETS_DIR = INPUT_DIR / "datasets"
+DERIVED_CORPORA_DIR = INPUT_DIR / "derived_corpora"
 MODELS_DIR = INPUT_DIR / "models"
 EXAMPLES_DIR = INPUT_DIR / "examples"
 

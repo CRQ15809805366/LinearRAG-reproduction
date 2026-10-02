@@ -6,7 +6,7 @@
 
 import json
 import os
-from src.utils import normalize_answer
+from src.common.utils import normalize_answer
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import logging

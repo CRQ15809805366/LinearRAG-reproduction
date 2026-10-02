@@ -2,6 +2,12 @@
 
 ## Status
 
+The shared HotpotQA supplement is prepared, not executed: see
+`PREPARED_2026-10-01_SHARED_CORPUS.md`. It consumes the same fixed 20-question /
+250-passage package as new Q1 and prepares LinearRAG/HippoRAG efficiency
+measurement with isolated index caches. The historical 2Wiki evidence below is
+unchanged and must not be combined with the new supplement.
+
 The first-stage design check and the bounded formal retrieval experiment
 completed on 2026-09-20.
 
@@ -78,3 +84,7 @@ a generative LLM. It also establishes the observed local timings for this run.
 It does not establish comparative superiority over other GraphRAG systems,
 stable timing distributions, the paper's 1,000-question result, or large-scale
 linear scalability.
+
+Live Q2 attempt on 2026-10-01 is partial: see `RUN_2026-10-01_SHARED_CORPUS_PARTIAL.md`. LinearRAG completed on the shared HotpotQA input; HippoRAG retained 192/250 extractions but repeated API timeout prevented indexing/retrieval completion. No comparative result is available.
+
+Final shared-corpus state: completed with recovery; see `RESULTS_2026-10-01_SHARED_CORPUS.md`. Both methods completed first-query and warm retrieval timing. HippoRAG full cold-index time is unavailable; the last passage used a documented output-budget/streaming recovery.

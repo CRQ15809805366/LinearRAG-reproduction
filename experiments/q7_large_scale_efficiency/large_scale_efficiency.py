@@ -21,10 +21,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import LinearRAGConfig
-from src.LinearRAG import LinearRAG
+from src.linearrag.config import LinearRAGConfig
+from src.linearrag.LinearRAG import LinearRAG
 from src.paths import DATASETS_DIR, EXPERIMENT_RESULTS_DIR, MODELS_DIR
-from src.utils import setup_logging
+from src.common.utils import setup_logging
 
 
 SOURCE_DATASET = "hotpotqa"

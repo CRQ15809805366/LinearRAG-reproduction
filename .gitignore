@@ -3,6 +3,7 @@
 .env.local
 .venv
 data/input/datasets/
+data/input/derived_corpora/
 data/input/models/
 data/output/
 scripts/

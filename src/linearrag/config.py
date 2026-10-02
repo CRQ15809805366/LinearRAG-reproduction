@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
 
-from src.utils import LLM_Model
+from src.common.utils import LLM_Model
 from src.paths import CACHE_DIR
 
 

@@ -48,7 +48,7 @@ It does not support a claim that LinearRAG outperforms all GraphRAG baselines.
 
 Entry point: `experiments/q1_generation_accuracy/generation_accuracy.py`
 
-Reusable Vanilla RAG implementation: `src/vanilla_rag.py`
+Reusable Vanilla RAG implementation: `src/baselines/vanilla_rag.py`
 
 Raw evidence:
 `data/output/experiment_results/q1_generation_accuracy/<experiment-id>/`

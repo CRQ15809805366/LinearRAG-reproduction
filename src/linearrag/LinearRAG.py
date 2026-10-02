@@ -5,8 +5,8 @@
 并在无可用实体时退化为稠密片段检索，最后组织上下文交给 LLM 生成答案。
 """
 
-from src.embedding_store import EmbeddingStore
-from src.utils import min_max_normalize
+from src.common.embedding_store import EmbeddingStore
+from src.common.utils import min_max_normalize
 import os
 import json
 from collections import defaultdict
@@ -14,7 +14,7 @@ import numpy as np
 import math
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
-from src.ner import SpacyNER
+from src.linearrag.ner import SpacyNER
 import igraph as ig
 import re
 import logging

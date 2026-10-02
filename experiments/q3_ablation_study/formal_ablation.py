@@ -21,11 +21,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import LinearRAGConfig
-from src.evaluate import Evaluator
-from src.LinearRAG import LinearRAG
+from src.linearrag.config import LinearRAGConfig
+from src.common.evaluate import Evaluator
+from src.linearrag.LinearRAG import LinearRAG
 from src.paths import CACHE_DIR, DATASETS_DIR, EXPERIMENT_RESULTS_DIR, MODELS_DIR
-from src.utils import LLM_Model, setup_logging
+from src.common.utils import LLM_Model, setup_logging
 
 
 VARIANTS = (
@@ -52,7 +52,7 @@ def json_default(value):
 
 
 class AblationLinearRAG(LinearRAG):
-    """Expose the two paper-defined Q3 ablations without changing src/LinearRAG.py."""
+    """Expose the two paper-defined Q3 ablations without changing src/linearrag/LinearRAG.py."""
 
     def __init__(self, global_config: LinearRAGConfig, variant: str):
         if variant not in VARIANTS:

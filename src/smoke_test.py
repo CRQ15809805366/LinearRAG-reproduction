@@ -21,8 +21,8 @@ import psutil
 import spacy
 from sentence_transformers import SentenceTransformer
 
-from src.LinearRAG import LinearRAG
-from src.config import LinearRAGConfig
+from src.linearrag.LinearRAG import LinearRAG
+from src.linearrag.config import LinearRAGConfig
 from src.paths import CACHE_DIR, EXAMPLES_DIR, MODELS_DIR, PROJECT_ROOT, SMOKE_OUTPUT_DIR
 
 

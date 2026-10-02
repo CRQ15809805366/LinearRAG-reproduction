@@ -29,7 +29,13 @@ Each question directory contains its design, detailed evidence, commands, and li
 
 The static Q3/Q4 paper-to-local comparison, including Figure 4/Table 4 source values, protocol mismatches, and old-run alignment checks, is recorded in `Q3_Q4_DISCREPANCY_AUDIT_GATE1.md`. It is a gate-1 audit only; it does not claim residual algorithmic causes or repeatability.
 
+HippoRAG 2024 is now available through an external-process adapter. Only a 12-passage / 3-question synthetic integration check and cache/resume validation have run; no Q1/Q2/Q4/Q7 formal HippoRAG baseline has been executed. See `../decisions/HIPPORAG_2024_INTEGRATION_2026-09-30.md` and `experiments/hipporag/README.md` at the repository root.
+
 ## Maintenance rules
+
+Q2 shared-corpus supplement is prepared, not executed: see `q2_efficiency_analysis/PREPARED_2026-10-01_SHARED_CORPUS.md`. It uses the same 20-question / 250-passage HotpotQA package as new Q1, with isolated cold-index caches, first-query timing and five real warm retrieval repetitions for LinearRAG/HippoRAG. No formal HippoRAG efficiency result has been added.
+
+Q1 small-corpus supplement was partially executed on 2026-10-01 (Vanilla/LinearRAG complete, HippoRAG timed out after one retry; see `q1_generation_accuracy/RUN_2026-10-01_SMALL_CORPUS_PARTIAL.md`). Original preparation design: see `q1_generation_accuracy/PREPARED_2026-10-01_SMALL_CORPUS.md`. Shared construction lives in `experiments/corpus_construction/`; the 20-question / 250-document HotpotQA input is under `data/input/derived_corpora/`. Q1 now supports an explicit three-method list and independent corpus caches. The original full-corpus bounded results and this partial small-corpus run must be reported separately.
 
 - Keep the reproduced algorithms unchanged unless the user explicitly requests a behavioral change.
 - Keep Agent-maintained files in English. Preserve exact paths, run IDs, commands, and model names.
@@ -37,3 +43,9 @@ The static Q3/Q4 paper-to-local comparison, including Figure 4/Table 4 source va
 - Retain files that support a research claim, learning objective, or reader-facing explanation. Remove empty placeholders, checkpoints after final results are saved, and isolated temporary caches once their recorded measurements are sufficient.
 - Keep limitations that affect the interpretation of a result. Omit process-recovery chronology that does not help understand the research question or its evidence.
 - Do not describe a bounded local result as a full-paper reproduction or compare against baselines that were not run.
+
+Q1 small-corpus replacement run completed: `q1_generation_accuracy/RESULTS_2026-10-01_SMALL_CORPUS_R2.md`. All three methods answered the same 20 questions on the modified 250-document corpus; HippoRAG reused 231 matching extraction records. Keep this bounded evidence separate from the historical 100-question/full-corpus run and the earlier incomplete attempt.
+
+2026-10-01 Q2 live attempt: `q2_efficiency_analysis/RUN_2026-10-01_SHARED_CORPUS_PARTIAL.md`. LinearRAG completed; HippoRAG stopped after a diagnosed API timeout and one retry, with 192/250 extractions retained. No formal HippoRAG efficiency comparison is available.
+
+Q2 shared-corpus final state supersedes the partial attempt above: `q2_efficiency_analysis/RESULTS_2026-10-01_SHARED_CORPUS.md`. LinearRAG/HippoRAG retrieval timing completed with recovery on 20 HotpotQA questions / 250 passages. HippoRAG full cold-index time remains unavailable; last-passage streaming/max_tokens recovery is documented. This does not establish accuracy or paper Table 2 replication.

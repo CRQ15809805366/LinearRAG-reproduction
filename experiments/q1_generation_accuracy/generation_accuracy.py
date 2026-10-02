@@ -1,32 +1,24 @@
-"""Run the bounded Q1 generation-accuracy reproduction.
+"""运行有明确边界的 Q1 问答准确率比较。
 
-This is deliberately a single experiment entry point: it fixes one question
-sample, runs Vanilla RAG and the original LinearRAG on that sample, evaluates
-both outputs, and writes the comparison under data/output/.
+支持原数据集抽样与预先固定的小语料输入包，复用生成和评价流程。
+HippoRAG 是显式选择的外部基线；prepare-only 只核验和记录输入。
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import sys
 from datetime import datetime
 from pathlib import Path
 
-from sentence_transformers import SentenceTransformer
+_IMPORT_ROOT = Path(__file__).resolve().parents[2]
+if str(_IMPORT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_IMPORT_ROOT))
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from src.config import LinearRAGConfig
-from src.evaluate import Evaluator
-from src.LinearRAG import LinearRAG
-from src.paths import DATASETS_DIR, MODELS_DIR, EXPERIMENT_RESULTS_DIR
-from src.utils import LLM_Model, setup_logging
-from src.vanilla_rag import VanillaRAG
+from src.paths import PROJECT_ROOT, DATASETS_DIR, MODELS_DIR, EXPERIMENT_RESULTS_DIR, CACHE_DIR
 
 
 DATASET_CONFIGS = {
@@ -60,258 +52,320 @@ DATASET_CONFIGS = {
     },
 }
 
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Bounded Q1 comparison: Vanilla RAG versus LinearRAG."
-    )
-    parser.add_argument(
-        "--datasets",
-        nargs="+",
-        choices=list(DATASET_CONFIGS),
-        default=list(DATASET_CONFIGS),
-    )
+    """解析原实验与自定义语料输入参数。"""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--datasets", nargs="+", choices=list(DATASET_CONFIGS),
+                        default=list(DATASET_CONFIGS))
+    parser.add_argument("--corpus-dir", type=Path) # 自定义语料目录
+    parser.add_argument("--methods", nargs="+", # 选择要比较的方法
+                        choices=["vanilla_rag", "linearrag", "hipporag"],
+                        default=["vanilla_rag", "linearrag"])
     parser.add_argument("--max-questions", type=int, default=100)
     parser.add_argument("--seed", type=int, default=20260917)
-    parser.add_argument("--embedding-model", type=Path, default=MODELS_DIR / "all-mpnet-base-v2")
+    parser.add_argument("--embedding-model", type=Path,
+                        default=MODELS_DIR / "all-mpnet-base-v2")
     parser.add_argument("--llm-model", default="gpt-4o-mini")
+    parser.add_argument("--hipporag-extraction-model", default="qwen3.8-flash") # HippoRAG 抽取模型
+    parser.add_argument("--hipporag-workers", type=int, default=4) # HippoRAG 工作线程数
     parser.add_argument("--max-workers", type=int, default=16)
     parser.add_argument("--experiment-id", default=None)
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument(
-        "--prepare-only",
-        action="store_true",
-        help="Write and validate the fixed sample manifest without loading models.",
-    )
+    parser.add_argument("--prepare-only", action="store_true")
     args = parser.parse_args()
-    if args.max_questions <= 0:
-        parser.error("--max-questions must be greater than 0")
+    if min(args.max_questions, args.max_workers, args.hipporag_workers) < 1:
+        parser.error("question count and worker counts must be positive")
+    if len(set(args.methods)) != len(args.methods):
+        parser.error("methods must be unique")
     return args
 
 
-def load_dataset(dataset_name: str) -> tuple[list[dict], list[str]]:
-    dataset_dir = DATASETS_DIR / dataset_name
-    with (dataset_dir / "questions.json").open(encoding="utf-8") as stream:
-        questions = json.load(stream)
-    with (dataset_dir / "chunks.json").open(encoding="utf-8") as stream:
-        chunks = json.load(stream)
+def file_hash(path: Path) -> str:
+    """记录输入文件哈希，防止恢复时混用不同输入。"""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_dataset(dataset_name: str, dataset_dir=None) -> tuple[list[dict], list[str]]:
+    """读取已有问题与片段格式，为三种方法添加一致的片段编号。"""
+    dataset_dir = dataset_dir or DATASETS_DIR / dataset_name
+    questions = json.loads((dataset_dir / "questions.json").read_text(encoding="utf-8"))
+    chunks = json.loads((dataset_dir / "chunks.json").read_text(encoding="utf-8"))
     passages = [f"{index}:{chunk}" for index, chunk in enumerate(chunks)]
     return questions, passages
 
 
 def fixed_sample(questions: list[dict], size: int, seed: int, dataset_name: str) -> list[dict]:
+    """按原实验的固定种子规则抽样，保持问题原顺序。"""
     if size > len(questions):
-        raise ValueError(
-            f"{dataset_name} has {len(questions)} questions, fewer than requested {size}."
-        )
-    # Dataset-specific text prevents otherwise identical RNG sequences across datasets.
+        raise ValueError(f"{dataset_name} has fewer than {size} questions")
     rng = random.Random(f"{seed}:{dataset_name}")
     selected_indices = sorted(rng.sample(range(len(questions)), size))
     return [questions[index] for index in selected_indices]
 
 
 def question_identifier(question: dict, fallback_index: int) -> str:
+    """取得可供结果配对的问题 ID。"""
     return str(question.get("id", fallback_index))
 
 
 def write_json(path: Path, value) -> None:
+    """保存配置、预测或比较结果。"""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as stream:
-        json.dump(value, stream, ensure_ascii=False, indent=2)
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run_vanilla_rag(
-    dataset_name: str,
-    questions: list[dict],
-    passages: list[str],
-    embedding_model: SentenceTransformer,
-    llm_model: LLM_Model,
-    max_workers: int,
-) -> list[dict]:
-    """Run the frozen dense-retrieval baseline with top-k fixed at five."""
+def prepare_inputs(args) -> tuple[dict, dict]:
+    """使实验既能继续使用原始数据集现场抽样，也能直接消费提前构造好的固定 corpus；
+    无论走哪条路径，最终都统一成同样的 questions + passages，再交给各个 RAG 方法"""
+
+    corpus_manifest = None
+    if args.corpus_dir:
+        args.corpus_dir = (
+            args.corpus_dir if args.corpus_dir.is_absolute() else PROJECT_ROOT / args.corpus_dir
+        ).resolve()
+        corpus_manifest = json.loads(
+            (args.corpus_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        dataset_names = [corpus_manifest["source_dataset"]]
+    else:
+        dataset_names = args.datasets
+
+    samples = {}
+    records = {}
+    for dataset_name in dataset_names:
+        dataset_dir = args.corpus_dir or DATASETS_DIR / dataset_name
+        questions, passages = load_dataset(dataset_name, dataset_dir)
+        hashes = {
+            name: file_hash(dataset_dir / f"{name}.json") for name in ("questions", "chunks")
+        }
+        if corpus_manifest:
+            for name, digest in hashes.items():
+                if digest != corpus_manifest[f"{name}_sha256"]:
+                    raise ValueError(f"Changed corpus file: {name}.json")
+            selected = questions  # 构造阶段已抽题，本阶段不重新抽样。
+            if [str(q["id"]) for q in selected] != corpus_manifest["question_ids"]:
+                raise ValueError("Corpus question IDs differ from manifest")
+            cache_identity = hashlib.sha256(
+                (hashes["questions"] + hashes["chunks"] + str(args.embedding_model.resolve())).encode()
+            ).hexdigest()[:20]
+            working_dir = CACHE_DIR / "derived_corpora" / cache_identity
+        else:
+            selected = fixed_sample(questions, args.max_questions, args.seed, dataset_name)
+            working_dir = CACHE_DIR
+
+        if not selected or len(passages) < 5:
+            raise ValueError("Q1 needs nonempty questions and at least five passages")
+        ids = [question_identifier(q, i) for i, q in enumerate(selected)]
+        if len(set(ids)) != len(ids):
+            raise ValueError("Question IDs must be unique")
+        # 候选上下文、答案和来源映射只用于审计，不传给检索与生成模型。
+        runtime_questions = [
+            dict(id=identifier, question=q["question"], answer=q["answer"])
+            for identifier, q in zip(ids, selected)
+        ]
+        samples[dataset_name] = (runtime_questions, passages, working_dir)
+        records[dataset_name] = dict(
+            available_questions=len(questions), sample_count=len(selected),
+            passage_count=len(passages), sample_ids=ids, input_sha256=hashes,
+            input_dir=str(dataset_dir), cache_dir=str(working_dir),
+            linearrag_parameters=DATASET_CONFIGS[dataset_name],
+            corpus_manifest_sha256=(file_hash(dataset_dir / "manifest.json")
+                                    if corpus_manifest else None),
+            construction_seed=corpus_manifest["seed"] if corpus_manifest else None,
+        )
+    return samples, records
+
+
+def run_vanilla_rag(dataset_name, questions, passages, embedding_model, llm_model,
+                    max_workers, working_dir=CACHE_DIR) -> list[dict]:
+    """在指定缓存中运行原 Top-5 向量检索和生成。"""
+    from src.baselines.vanilla_rag import VanillaRAG
+
     model = VanillaRAG(
-        dataset_name=dataset_name,
-        embedding_model=embedding_model,
-        llm_model=llm_model,
-        max_workers=max_workers,
-        retrieval_top_k=5,
+        dataset_name=dataset_name, embedding_model=embedding_model,
+        llm_model=llm_model, max_workers=max_workers,
+        retrieval_top_k=5, working_dir=working_dir,
     )
     model.index(passages)
     return model.qa(questions)
 
 
-def run_linearrag(
-    dataset_name: str,
-    questions: list[dict],
-    passages: list[str],
-    embedding_model: SentenceTransformer,
-    llm_model: LLM_Model,
-    max_workers: int,
-) -> list[dict]:
-    params = DATASET_CONFIGS[dataset_name]
-    config = LinearRAGConfig(0
-        dataset_name=dataset_name,
-        embedding_model=embedding_model,
-        llm_model=llm_model,
-        max_workers=max_workers,
-        retrieval_top_k=5,
-        use_vectorized_retrieval=False,
-        **params,
+def run_linearrag(dataset_name, questions, passages, embedding_model, llm_model,
+                  max_workers, working_dir=CACHE_DIR) -> list[dict]:
+    """使用源数据集参数和独立语料缓存，运行原 BFS 检索。"""
+    from src.linearrag.config import LinearRAGConfig
+    from src.linearrag.LinearRAG import LinearRAG
+
+    config = LinearRAGConfig(
+        dataset_name=dataset_name, embedding_model=embedding_model,
+        llm_model=llm_model, max_workers=max_workers, retrieval_top_k=5,
+        working_dir=working_dir, use_vectorized_retrieval=False,
+        **DATASET_CONFIGS[dataset_name],
     )
     model = LinearRAG(global_config=config)
     model.index(passages)
     results = model.qa(questions)
     for question_info, result in zip(questions, results):
-        result["id"] = question_info.get("id")
+        result["id"] = question_info["id"]
     return results
 
 
-def evaluate_predictions(
-    predictions: list[dict],
-    output_dir: Path,
-    llm_model: LLM_Model,
-    max_workers: int,
-) -> dict:
+def run_hipporag(questions, passages, args, llm_model, output_dir) -> list[dict]:
+    """通过已有适配器运行原版 HippoRAG，并在本次结果目录保留缓存。"""
+    from src.baselines.hipporag import HippoRAG
+
+    model = HippoRAG(
+        llm_model=llm_model, embedding_model_path=args.embedding_model,
+        extraction_model=args.hipporag_extraction_model,
+        retrieval_top_k=5, max_workers=args.hipporag_workers,
+        working_dir=output_dir.parent, experiment_id=output_dir.name,
+    )
+    model.index(passages)
+    return model.qa(questions)
+
+
+def evaluate_predictions(predictions, output_dir, llm_model, max_workers) -> dict:
+    """复用现有评价器，保存逐题分数及总体指标。"""
+    from src.common.evaluate import Evaluator
+
     predictions_path = output_dir / "predictions.json"
     write_json(predictions_path, predictions)
     evaluator = Evaluator(llm_model=llm_model, predictions_path=str(predictions_path))
     llm_accuracy, contain_accuracy = evaluator.evaluate(max_workers=max_workers)
-    return {
-        "llm_accuracy": llm_accuracy,
-        "contain_accuracy": contain_accuracy,
-        "sample_count": len(predictions),
-    }
+    return dict(llm_accuracy=llm_accuracy, contain_accuracy=contain_accuracy,
+                sample_count=len(predictions))
 
 
 def build_comparison(dataset_name: str, vanilla: dict, linearrag: dict) -> dict:
-    reported_metrics = ["llm_accuracy"] if dataset_name == "medical" else [
-        "contain_accuracy",
-        "llm_accuracy",
+    """保留原两方法比较格式，供旧结果使用。"""
+    metrics = ["llm_accuracy"] if dataset_name == "medical" else [
+        "contain_accuracy", "llm_accuracy",
     ]
-    deltas = {
-        metric: linearrag[metric] - vanilla[metric]
-        for metric in reported_metrics
-    }
-    return {
-        "dataset": dataset_name,
-        "sample_count": vanilla["sample_count"],
-        "reported_metrics": reported_metrics,
-        "vanilla_rag": vanilla,
-        "linearrag": linearrag,
-        "linearrag_minus_vanilla": deltas,
-    }
+    return dict(
+        dataset=dataset_name, sample_count=vanilla["sample_count"],
+        reported_metrics=metrics, vanilla_rag=vanilla, linearrag=linearrag,
+        linearrag_minus_vanilla={m: linearrag[m] - vanilla[m] for m in metrics},
+    )
+
+
+def compare_methods(dataset_name: str, results: dict) -> dict:
+    """汇总所选方法，并记录 LinearRAG 相对已运行对照的差值。"""
+    if list(results) == ["vanilla_rag", "linearrag"]:
+        return build_comparison(dataset_name, results["vanilla_rag"], results["linearrag"])
+
+    metrics = ["llm_accuracy"] if dataset_name == "medical" else [
+        "contain_accuracy", "llm_accuracy",
+    ]
+    comparison = dict(dataset=dataset_name, reported_metrics=metrics, **results)
+    if "linearrag" in results:
+        for method, scores in results.items():
+            if method != "linearrag":
+                comparison[f"linearrag_minus_{method}"] = {
+                    metric: results["linearrag"][metric] - scores[metric] for metric in metrics
+                }
+    return comparison
+
+
+def validate_predictions(predictions, questions, passages) -> None:
+    """核验问题配对、Top-5 数量和返回片段归属，避免错误汇总。"""
+    if len(predictions) != len(questions):
+        raise ValueError("Prediction count differs from question count")
+    passage_set = set(passages)
+    for prediction, question in zip(predictions, questions):
+        if str(prediction["id"]) != str(question["id"]):
+            raise ValueError("Prediction IDs are not aligned")
+        if prediction["question"] != question["question"]:
+            raise ValueError("Prediction question text differs")
+        if prediction["gold_answer"] != question["answer"] or "pred_answer" not in prediction:
+            raise ValueError("Prediction answer fields differ or are incomplete")
+        context = prediction["sorted_passage"]
+        if len(context) != 5 or not set(context).issubset(passage_set):
+            raise ValueError("Prediction context differs from shared corpus/Top-5")
 
 
 def main() -> int:
+    """准备输入清单，或运行所选方法并复用已有完整预测和评价。"""
     args = parse_args()
+    args.embedding_model = (
+        args.embedding_model if args.embedding_model.is_absolute()
+        else PROJECT_ROOT / args.embedding_model
+    ).resolve()
+    samples, records = prepare_inputs(args)
     experiment_id = args.experiment_id or datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_dir = EXPERIMENT_RESULTS_DIR / "q1_generation_accuracy" / experiment_id
     if args.resume and not output_dir.exists():
         raise FileNotFoundError(f"Cannot resume missing run directory: {output_dir}")
+
+    manifest = dict(
+        research_question="Q1 Generation Accuracy", experiment_id=experiment_id,
+        seed=args.seed if not args.corpus_dir else None,
+        methods=args.methods, input_mode="fixed_corpus" if args.corpus_dir else "sampled",
+        embedding_model=str(args.embedding_model), llm_model=args.llm_model,
+        max_workers=args.max_workers, hipporag_workers=args.hipporag_workers,
+        hipporag_extraction_model=args.hipporag_extraction_model,
+        hipporag_retrieval_config=dict(damping=0.5, sim_threshold=0.8),
+        enable_thinking=False if args.llm_model == "qwen3.8-flash" else None,
+        retrieval_top_k=5, linear_retrieval_path="official BFS", datasets=records,
+    )
     output_dir.mkdir(parents=True, exist_ok=args.resume)
-
-    samples = {}
-    manifest_datasets = {}
-    for dataset_name in args.datasets:
-        questions, passages = load_dataset(dataset_name)
-        sampled_questions = fixed_sample(
-            questions, args.max_questions, args.seed, dataset_name
-        )
-        samples[dataset_name] = (sampled_questions, passages)
-        manifest_datasets[dataset_name] = {
-            "available_questions": len(questions),
-            "passage_count": len(passages),
-            "sample_ids": [
-                question_identifier(question, index)
-                for index, question in enumerate(sampled_questions)
-            ],
-            "linearrag_parameters": DATASET_CONFIGS[dataset_name],
-        }
-
-    manifest = {
-        "research_question": "Q1 Generation Accuracy",
-        "scope": "Bounded Vanilla RAG versus original LinearRAG comparison",
-        "experiment_id": experiment_id,
-        "seed": args.seed,
-        "max_questions_per_dataset": args.max_questions,
-        "embedding_model": str(args.embedding_model.resolve()),
-        "llm_model": args.llm_model,
-        "enable_thinking": False if args.llm_model == "qwen3.8-flash" else None,
-        "retrieval_top_k": 5,
-        "linear_retrieval_path": "official BFS",
-        "datasets": manifest_datasets,
-    }
-    if not args.resume:
-        write_json(output_dir / "manifest.json", manifest)
+    manifest_path = output_dir / "manifest.json"
+    if args.resume:
+        previous = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if previous != manifest:
+            raise ValueError("Resume inputs/configuration differ; use a new experiment ID")
+    else:
+        write_json(manifest_path, manifest)
 
     if args.prepare_only:
-        print(f"Prepared Q1 sample manifest: {output_dir / 'manifest.json'}")
+        print(f"Prepared Q1 sample manifest: {manifest_path}")
         return 0
+
+    from sentence_transformers import SentenceTransformer
+    from src.common.utils import LLM_Model, setup_logging
 
     setup_logging(str(output_dir / "experiment.log"))
     embedding_model = SentenceTransformer(str(args.embedding_model), device="cuda")
     llm_model = LLM_Model(args.llm_model)
-
     comparisons = []
-    for dataset_name in args.datasets:
-        questions, passages = samples[dataset_name]
+    for dataset_name, (questions, passages, working_dir) in samples.items():
         dataset_output = output_dir / dataset_name
-        comparison_path = dataset_output / "comparison.json"
+        scores = {}
+        for method in args.methods:
+            method_dir = dataset_output / method
+            predictions_path = method_dir / "predictions.json"
+            metrics_path = method_dir / "evaluation_results.json"
+            if args.resume and predictions_path.exists():
+                predictions = json.loads(predictions_path.read_text(encoding="utf-8"))
+                validate_predictions(predictions, questions, passages)
+            else:
+                print(f"[start] {method}: {dataset_name}", flush=True)
+                if method == "hipporag":
+                    predictions = run_hipporag(questions, passages, args, llm_model, method_dir)
+                elif method == "vanilla_rag":
+                    predictions = run_vanilla_rag(
+                        dataset_name, questions, passages, embedding_model,
+                        llm_model, args.max_workers, working_dir,
+                    )
+                else:
+                    predictions = run_linearrag(
+                        dataset_name, questions, passages, embedding_model,
+                        llm_model, args.max_workers, working_dir,
+                    )
+                validate_predictions(predictions, questions, passages)
 
-        if args.resume and comparison_path.exists():
-            print(f"[resume] Completed dataset skipped: {dataset_name}", flush=True)
-            with comparison_path.open(encoding="utf-8") as stream:
-                comparisons.append(json.load(stream))
-            continue
+            if args.resume and metrics_path.exists():
+                metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+                metrics["sample_count"] = len(questions)
+            else:
+                metrics = evaluate_predictions(predictions, method_dir, llm_model, args.max_workers)
+            scores[method] = metrics
 
-        vanilla_dir = dataset_output / "vanilla_rag"
-        vanilla_metrics_path = vanilla_dir / "evaluation_results.json"
-        if args.resume and vanilla_metrics_path.exists():
-            print(f"[resume] Completed Vanilla RAG skipped: {dataset_name}", flush=True)
-            with vanilla_metrics_path.open(encoding="utf-8") as stream:
-                vanilla_metrics = json.load(stream)
-            vanilla_metrics["sample_count"] = len(questions)
-        else:
-            print(f"[start] Vanilla RAG: {dataset_name}", flush=True)
-            vanilla_predictions = run_vanilla_rag(
-                dataset_name,
-                questions,
-                passages,
-                embedding_model,
-                llm_model,
-                args.max_workers,
-            )
-            vanilla_metrics = evaluate_predictions(
-                vanilla_predictions, vanilla_dir, llm_model, args.max_workers
-            )
-            print(f"[done] Vanilla RAG: {dataset_name}", flush=True)
-
-        linearrag_dir = dataset_output / "linearrag"
-        linearrag_metrics_path = linearrag_dir / "evaluation_results.json"
-        if args.resume and linearrag_metrics_path.exists():
-            print(f"[resume] Completed LinearRAG skipped: {dataset_name}", flush=True)
-            with linearrag_metrics_path.open(encoding="utf-8") as stream:
-                linearrag_metrics = json.load(stream)
-            linearrag_metrics["sample_count"] = len(questions)
-        else:
-            print(f"[start] LinearRAG: {dataset_name}", flush=True)
-            linearrag_predictions = run_linearrag(
-                dataset_name,
-                questions,
-                passages,
-                embedding_model,
-                llm_model,
-                args.max_workers,
-            )
-            linearrag_metrics = evaluate_predictions(
-                linearrag_predictions, linearrag_dir, llm_model, args.max_workers
-            )
-            print(f"[done] LinearRAG: {dataset_name}", flush=True)
-
-        comparison = build_comparison(dataset_name, vanilla_metrics, linearrag_metrics)
+        comparison = compare_methods(dataset_name, scores)
+        write_json(dataset_output / "comparison.json", comparison)
         comparisons.append(comparison)
-        write_json(comparison_path, comparison)
 
-    write_json(output_dir / "summary.json", {"datasets": comparisons})
+    write_json(output_dir / "summary.json", dict(datasets=comparisons))
     print(f"Q1 experiment completed: {output_dir}")
     return 0
 

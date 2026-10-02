@@ -11,14 +11,14 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 from sentence_transformers import SentenceTransformer
 
-from src.config import LinearRAGConfig
-from src.LinearRAG import LinearRAG
+from src.linearrag.config import LinearRAGConfig
+from src.linearrag.LinearRAG import LinearRAG
 
 import warnings
 
-from src.evaluate import Evaluator
-from src.utils import LLM_Model
-from src.utils import setup_logging
+from src.common.evaluate import Evaluator
+from src.common.utils import LLM_Model
+from src.common.utils import setup_logging
 from src.paths import DATASETS_DIR, MODELS_DIR, EXPERIMENT_RESULTS_DIR
 
 from datetime import datetime

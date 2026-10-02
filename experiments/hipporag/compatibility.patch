@@ -1,0 +1,99 @@
+diff --git a/src/RetrievalModule.py b/src/RetrievalModule.py
+index 6cefd13..6f3cacd 100644
+--- a/src/RetrievalModule.py
++++ b/src/RetrievalModule.py
+@@ -275,7 +275,7 @@ class RetrievalModule:
+         print('Chunking')
+ 
+         dim = len(original_vecs[0])
+-        index_split = 4
++        index_split = min(4, len(original_vecs))
+         index_chunks = np.array_split(original_vecs, index_split)
+         query_chunks = np.array_split(new_vecs, 100)
+ 
+@@ -300,9 +300,12 @@ class RetrievalModule:
+                     gpu_resources.append(res)
+ 
+                 gpu_index = faiss.index_cpu_to_gpu_multiple_py(gpu_resources, index)
+-            else:
++            elif faiss.get_num_gpus() == 1:
+                 gpu_resources = faiss.StandardGpuResources()
+                 gpu_index = faiss.index_cpu_to_gpu(gpu_resources, 0, index)
++            else:
++                gpu_resources = None
++                gpu_index = index
+ 
+             print()
+             gpu_index.add(index_chunk)
+@@ -310,7 +313,7 @@ class RetrievalModule:
+             D, I = [], []
+ 
+             for q in tqdm(query_chunks):
+-                d, i = gpu_index.search(q, k)
++                d, i = gpu_index.search(q, min(k, len(index_chunk)))
+ 
+                 i += current_zero_index
+ 
+diff --git a/src/hipporag.py b/src/hipporag.py
+index 64b6b90..2096925 100644
+--- a/src/hipporag.py
++++ b/src/hipporag.py
+@@ -9,12 +9,8 @@ import igraph as ig
+ import numpy as np
+ import pandas as pd
+ import torch
+-from colbert import Searcher
+-from colbert.data import Queries
+-from colbert.infra import RunConfig, Run, ColBERTConfig
+ from tqdm import tqdm
+ 
+-from src.colbertv2_indexing import colbertv2_index
+ from src.langchain_util import init_langchain_model, LangChainModel
+ from src.lm_wrapper.util import init_embedding_model
+ from src.named_entity_extraction_parallel import named_entity_recognition
+@@ -61,6 +57,12 @@ class HippoRAG:
+         self.graph_creating_retriever_name = graph_creating_retriever_name  # 'colbertv2', 'facebook/contriever', or other HuggingFace models
+         self.graph_creating_retriever_name_processed = graph_creating_retriever_name.replace('/', '_').replace('.', '')
+         self.linking_retriever_name = linking_retriever_name
++        if linking_retriever_name == 'colbertv2':
++            global Searcher, Queries, RunConfig, Run, ColBERTConfig, colbertv2_index
++            from colbert import Searcher
++            from colbert.data import Queries
++            from colbert.infra import RunConfig, Run, ColBERTConfig
++            from src.colbertv2_indexing import colbertv2_index
+         self.linking_retriever_name_processed = linking_retriever_name.replace('/', '_').replace('.', '')
+ 
+         self.extraction_type = extraction_type
+diff --git a/src/openie_with_retrieval_option_parallel.py b/src/openie_with_retrieval_option_parallel.py
+index 8dd2c2c..cc3a0bd 100644
+--- a/src/openie_with_retrieval_option_parallel.py
++++ b/src/openie_with_retrieval_option_parallel.py
+@@ -58,7 +58,7 @@ def named_entity_recognition(passage: str):
+             not_done = False
+         except Exception as e:
+             print('Passage NER exception')
+-            print(e)
++            raise
+ 
+     return response_content, total_tokens
+ 
+@@ -68,8 +68,8 @@ def openie_post_ner_extract(passage: str, entities: list, model: str):
+     openie_messages = openie_post_ner_prompts.format_prompt(passage=passage, named_entity_json=json.dumps(named_entity_json))
+ 
+     try:
+-        if isinstance(client, ChatOpenAI):  # JSON mode
+-            chat_completion = client.invoke(openie_messages.to_messages(), temperature=0, max_tokens=4096, response_format={"type": "json_object"})
++        if isinstance(client, ChatOpenAI) or model == "qwen3.8-flash":  # 兼容桥接客户端的 JSON 输出
++            chat_completion = client.invoke(openie_messages.to_messages(), temperature=0, max_tokens=16384, response_format={"type": "json_object"})
+             response_content = chat_completion.content
+             total_tokens = chat_completion.response_metadata['token_usage']['total_tokens']
+         elif isinstance(client, ChatOllama) or isinstance(client, ChatLlamaCpp):
+@@ -78,7 +78,7 @@ def openie_post_ner_extract(passage: str, entities: list, model: str):
+             response_content = str(response_content)
+             total_tokens = len(response_content.split())
+         else:  # no JSON mode
+-            chat_completion = client.invoke(openie_messages.to_messages(), temperature=0, max_tokens=4096)
++            chat_completion = client.invoke(openie_messages.to_messages(), temperature=0, max_tokens=16384)
+             response_content = chat_completion.content
+             response_content = extract_json_dict(response_content)
+             response_content = str(response_content)

@@ -24,10 +24,10 @@ from experiments.q3_ablation_study.ablation_study import (
     write_json,
 )
 from experiments.q3_ablation_study.formal_ablation import qa_with_isolated_failures
-from src.config import LinearRAGConfig
-from src.LinearRAG import LinearRAG
+from src.linearrag.config import LinearRAGConfig
+from src.linearrag.LinearRAG import LinearRAG
 from src.paths import CACHE_DIR, DATASETS_DIR, EXPERIMENT_RESULTS_DIR, MODELS_DIR
-from src.utils import LLM_Model, setup_logging
+from src.common.utils import LLM_Model, setup_logging
 
 
 DATASET_NAME = "2wikimultihop"

@@ -25,16 +25,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from experiments.q3_ablation_study.ablation_study import (
+from experiments.q3_ablation_study.formal_ablation import (
     compare_retrievals,
     evaluate_predictions,
     write_json,
 )
-from src.config import LinearRAGConfig
-from src.LinearRAG import LinearRAG
-from src.ner import SpacyNER
+from src.linearrag.config import LinearRAGConfig
+from src.linearrag.LinearRAG import LinearRAG
+from src.linearrag.ner import SpacyNER
 from src.paths import CACHE_DIR, DATASETS_DIR, EXPERIMENT_RESULTS_DIR, MODELS_DIR
-from src.utils import LLM_Model, setup_logging
+from src.common.utils import LLM_Model, setup_logging
 
 
 DATASET_NAME = "2wikimultihop"
