@@ -6,6 +6,7 @@
 
 ## 开始使用
 
+- [复现总结：结果报告、算法理解与接手读物（GitBook 目录）](docs/book/README.md)
 - [安装、资源准备与运行方式](docs/RUNNING.md)
 - [当前实验状态与结果索引](docs/EXPERIMENT_STATE.md)
 - [Q1–Q8 实验设计](docs/foundation/EXPERIMENT_DESIGN.md)
