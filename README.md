@@ -4,19 +4,17 @@
 
 仓库保留了复现代码、实验设计、实际运行记录和结果边界。现有结果来自本地数据、硬件和模型条件，不等同于完整论文复现。
 
-## 开始使用
+## 阅读与运行
 
-- [在线阅读：LinearRAG 复现总结（GitBook）](https://mail-hfut-edu-1.gitbook.io/mail.hfut.edu-docs/)
-- [仓库内书稿：结果报告、算法理解与接手读物](docs/book/README.md)
-- [安装、资源准备与运行方式](docs/RUNNING.md)
-- [当前实验状态与结果索引](docs/EXPERIMENT_STATE.md)
-- [Q1–Q8 实验设计](docs/foundation/EXPERIMENT_DESIGN.md)
+想了解复现结果、算法和代码，先读 [LinearRAG 复现总结（GitBook）](https://mail-hfut-edu-1.gitbook.io/mail.hfut.edu-docs/)；同一份书稿也可[在仓库内阅读](docs/book/README.md)。
 
-## 已有说明
+想在本地运行项目，按[安装、资源准备与运行方式](docs/RUNNING.md)配置环境。
 
-- [LinearRAG 基线来源与引入边界](docs/foundation/LINEARRAG_IMPORT.md)
-- [HippoRAG 基线来源与引入边界](docs/foundation/HIPPORAG_IMPORT.md)
-- [分项实验记录](docs/records/)
+## 实验与基线资料
+
+- [当前实验状态与结果索引](docs/EXPERIMENT_STATE.md)：查看已完成的实验、结论边界和分项记录。
+- [Q1–Q8 实验设计](docs/foundation/EXPERIMENT_DESIGN.md)：查看研究问题、比较条件和测量口径。
+- 基线来源与引入边界：[LinearRAG](docs/foundation/LINEARRAG_IMPORT.md)、[HippoRAG](docs/foundation/HIPPORAG_IMPORT.md)。
 
 ## 来源与引用
 
