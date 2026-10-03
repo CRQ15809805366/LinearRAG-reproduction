@@ -6,9 +6,8 @@
 
 ## 阅读与运行
 
-想了解复现结果、算法和代码，先读 [LinearRAG 复现总结（GitBook）](https://mail-hfut-edu-1.gitbook.io/mail.hfut.edu-docs/)；同一份书稿也可[在仓库内阅读](docs/book/README.md)。
-
-想在本地运行项目，按[安装、资源准备与运行方式](docs/RUNNING.md)配置环境。
+- 复现总结：[GitBook 在线版](https://mail-hfut-edu-1.gitbook.io/mail.hfut.edu-docs/) · [仓库书稿](docs/book/README.md)，涵盖实验结果、算法与代码实现。
+- [运行说明](docs/RUNNING.md)：环境配置、资源准备与运行方式。
 
 ## 实验与基线资料
 
